@@ -1,0 +1,5 @@
+Organisation: NY State Senate
+URL: https://www.nysenate.gov/legislation/bills/2023/S4746/amendment/B
+Page Title: THE BILL
+
+Amends the general business law by adding a new section 399-mm to establish the Fashion Sustainability and Social Accountability Act. This section sets forth requirements for fashion sellers with $100 million in annual gross receipts that do business in the state of New York to map their supply chains and perform sufficient due diligence. This includes identifying, preventing, mitigating, accounting for, and taking remedial action to address actual and potential adverse impacts to human rights and the environment.

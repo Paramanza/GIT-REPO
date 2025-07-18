@@ -1,0 +1,5 @@
+Organisation: US Federal Trade Commission
+URL: https://www.ftc.gov/business-guidance/industry/clothing-and-textiles
+Page Title: Threading Your Way Through the Labeling Requirements Under the Textile and Wool Acts
+
+Federal labeling requirements for textile and wool products, enforced by the FTC, require that most of these products have a label listing the fiber content, country of origin and identity of the manufacturer or another business responsible for marketing or handling the item. The Rules require that labels identify manufactured fibers using the fiber’s generic names. The FTC has updated section 303.7 to ease barriers to trade by permitting more internationally-recognized fiber names used in the International Organization for Standardization’s standard for generic names of man-made fibers.

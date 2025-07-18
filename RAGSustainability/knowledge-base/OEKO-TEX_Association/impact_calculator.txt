@@ -1,0 +1,5 @@
+Organisation: OEKO-TEX Association
+URL: https://www.oeko-tex.com/
+Page Title: impact calculator
+
+The Impact Calculator: measure your footprint now. To achieve the industry’s 2030 goal, companies need reliable data. Our tool - the Impact Calculator - helps you calculate your carbon and water footprint. The Impact Calculator provides you with an initial estimate and assessment on the materials and process steps that contribute most to your overall environmental impact. It is available to any textile production facility applying for, or already holding an OEKO-TEX® STeP certification. Understand production-related carbon emissions and water usage at factory, process step, and per kg of product level. Identify processes with highest environmental impact. Act to reduce carbon and water usage in the future. Report results and reduction measures to your partners. A Screening LCA is easier, faster and less expensive than a full LCA – and it provides sufficient initial and credible insight into where a facility’s biggest carbon emissions and water impacts occur across its processing steps and for the types of fibres used.

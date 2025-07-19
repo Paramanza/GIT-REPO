@@ -368,10 +368,17 @@ def chat_with_rag(message, history, plot_fig):
     updated_plot = create_query_plot(message, source_documents)
     return history, combined_chunks, updated_plot
 
-print("🎯 Creating widescreen-optimized interface...")
+print(" Creating widescreen-optimized interface...")
 
 with gr.Blocks(title="RAG Sustainability Chatbot") as demo_optimized:
-    gr.Markdown("#  Sustainability RAG Chatbot with Vector Visualization")
+    # Top row with title and sample questions button
+    with gr.Row():
+        gr.Markdown("#  Sustainability RAG Chatbot with Vector Visualization")
+        test_questions_btn = gr.Button(
+            "Sample Questions", 
+            size="sm",
+            scale=1
+        )
     
     with gr.Row():
         # Left column 
@@ -406,9 +413,80 @@ with gr.Blocks(title="RAG Sustainability Chatbot") as demo_optimized:
             info_display = gr.Textbox(
                 value=rag_info_compact,
                 label=" Vector Database Details",
-                lines=5,  # HALVED from 6 to 3 lines as marked in red
+                lines=5, 
                 interactive=False
             )
+    
+    # Test questions popup (initially hidden)
+    with gr.Column(visible=False) as test_questions_popup:
+        gr.Markdown("# Sample Questions to Test the RAG System")
+        gr.Markdown("Here are 10 detailed questions to explore the sustainability knowledge base:")
+        
+        # INSERT YOUR TEST QUESTIONS HERE
+        test_questions_text = """
+Cross-Document Comparison Questions:
+What are the key differences between the UK’s Green Claims Code and the US FTC Green Guides regarding the use of terms like "eco-friendly" in marketing fashion products?
+Tests understanding of regulatory nuance across jurisdictions.
+
+Compare how the EU and the UK approach the responsibility of fashion businesses in substantiating environmental claims. What legal or practical requirements are in place in both regions?
+Tests synthesis between the UK Green Claims Code and EU Green Deal / Circular Economy documents.
+
+According to EU and UK guidance, what role should consumers play in identifying misleading environmental claims, and how are they supported in this role?
+Requires pulling from both consumer advice sections in the UK Green Claims Code and EU circular economy communication tools.
+
+Sustainability Metrics and Impact Analysis:
+How much water is required to produce a cotton T-shirt, and how does this illustrate the environmental impact of textile production in the EU?
+Tests factual recall from EU Parliament and EEA sources on water consumption.
+
+What proportion of clothes are recycled into new garments in the EU, and how does this relate to the EU’s goals for a circular economy by 2050?
+Connects micro-level statistics with high-level strategic goals.
+
+What specific environmental harms are associated with synthetic textiles in both EU and US contexts, and how do policies in each region attempt to mitigate them?
+Draws on EU microplastics policy and US FTC Green Guides on biodegradability and environmental claims.
+
+Policy and Regulatory Questions:
+What is the EU’s Extended Producer Responsibility (EPR) scheme for textiles, and how does its proposed timeline compare with UK or US regulatory efforts?
+Evaluates retrieval and comparison of timelines and policy mechanisms.
+
+What are the legal consequences for fashion businesses in the UK that make misleading green claims, and how do these compare to enforcement under the US FTC guidelines?
+Tests understanding of legal frameworks and enforcement mechanisms.
+
+Application & Practical Evaluation:
+If a fashion brand claims that a polyester jacket is “sustainable” because it uses recycled materials, what further information must they provide according to UK and EU guidance to avoid misleading consumers?
+Evaluates application of principles like lifecycle consideration, claim substantiation, and transparency.
+
+What should a fashion brand include on its product labels and marketing to comply with both the EU’s proposed Digital Product Passport and the FTC’s Green Guides?
+Cross-checks label transparency, durability, recycled content, and origin information from different jurisdictions.
+
+        """
+        
+        gr.Textbox(
+            value=test_questions_text,
+            label="Test Questions",
+            lines=15,
+            max_lines=20,
+            interactive=False
+        )
+        
+        with gr.Row():
+            close_popup_btn = gr.Button("Close", variant="secondary")
+    
+    # Button click handlers
+    def show_test_questions():
+        return gr.update(visible=True)
+    
+    def hide_test_questions():
+        return gr.update(visible=False)
+    
+    test_questions_btn.click(
+        fn=show_test_questions,
+        outputs=test_questions_popup
+    )
+    
+    close_popup_btn.click(
+        fn=hide_test_questions,
+        outputs=test_questions_popup
+    )
     
     # Handle chat submission
     query_input.submit(

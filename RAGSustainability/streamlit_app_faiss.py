@@ -28,9 +28,19 @@ K_FACTOR = 25
 
 # Load environment variables
 load_dotenv()
-api_key = os.getenv('OPENAI_API_KEY') or st.secrets.get('OPENAI_API_KEY', '')
+
+# Gracefully load the OpenAI API key either from the environment or, if
+# available, from Streamlit's secrets file. Accessing ``st.secrets`` when no
+# ``secrets.toml`` file exists raises ``StreamlitSecretNotFoundError`` so we
+# guard against that scenario.
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    try:
+        api_key = st.secrets.get("OPENAI_API_KEY", "")
+    except Exception:
+        api_key = ""
 if api_key:
-    os.environ['OPENAI_API_KEY'] = api_key
+    os.environ["OPENAI_API_KEY"] = api_key
 
 # Page configuration
 st.set_page_config(
@@ -46,8 +56,12 @@ def initialize_rag_system():
     try:
         embeddings = OpenAIEmbeddings()
         
-        # Try to load existing FAISS database
-        if os.path.exists(f"{faiss_db_path}.faiss") and os.path.exists(f"{faiss_db_path}.pkl"):
+        # Try to load existing FAISS database. ``FAISS.save_local`` stores
+        # ``index.faiss`` and ``index.pkl`` inside the target directory, so we
+        # check for those files instead of ``faiss_db_path.faiss``.
+        index_faiss = os.path.join(faiss_db_path, "index.faiss")
+        index_pkl = os.path.join(faiss_db_path, "index.pkl")
+        if os.path.exists(index_faiss) and os.path.exists(index_pkl):
             st.info("Loading existing FAISS database...")
             vectorstore = FAISS.load_local(faiss_db_path, embeddings, allow_dangerous_deserialization=True)
             
@@ -113,7 +127,10 @@ python convert_chroma_to_faiss.py
         with st.expander("🔍 System Information"):
             st.write(f"Python version: {sys.version}")
             st.write(f"Current directory: {os.getcwd()}")
-            st.write(f"FAISS files exist: {os.path.exists(f'{faiss_db_path}.faiss')}")
+            st.write(
+                "FAISS files exist: "
+                f"{os.path.exists(os.path.join(faiss_db_path, 'index.faiss'))}"
+            )
         
         return None
 

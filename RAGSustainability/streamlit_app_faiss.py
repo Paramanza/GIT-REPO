@@ -13,7 +13,6 @@ import streamlit as st # type: ignore
 import plotly.graph_objects as go
 from sklearn.decomposition import PCA
 import pickle
-import faiss
 
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_community.vectorstores import FAISS

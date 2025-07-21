@@ -6,6 +6,7 @@ Uses FAISS instead of Chroma to avoid SQLite issues on Streamlit Cloud
 
 import os
 import sys
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
@@ -23,7 +24,10 @@ from langchain.schema import Document
 
 # Configuration
 MODEL = "gpt-4o-mini"
-faiss_db_path = "faiss_db"
+# Determine the path to the FAISS index relative to this file so the app works
+# regardless of the current working directory.
+SCRIPT_DIR = Path(__file__).resolve().parent
+faiss_db_path = SCRIPT_DIR / "faiss_db"
 K_FACTOR = 25
 
 # Load environment variables
@@ -64,14 +68,17 @@ def initialize_rag_system():
         # Try to load existing FAISS database. ``FAISS.save_local`` stores
         # ``index.faiss`` and ``index.pkl`` inside the target directory, so we
         # check for those files instead of ``faiss_db_path.faiss``.
-        index_faiss = os.path.join(faiss_db_path, "index.faiss")
-        index_pkl = os.path.join(faiss_db_path, "index.pkl")
-        if os.path.exists(index_faiss) and os.path.exists(index_pkl):
+
+        index_faiss = faiss_db_path / "index.faiss"
+        index_pkl = faiss_db_path / "index.pkl"
+        if index_faiss.exists() and index_pkl.exists():
+
             st.info("Loading existing FAISS database...")
-            vectorstore = FAISS.load_local(faiss_db_path, embeddings, allow_dangerous_deserialization=True)
-            
+            vectorstore = FAISS.load_local(str(faiss_db_path), embeddings, allow_dangerous_deserialization=True)
+
             # Load metadata
-            with open(f"{faiss_db_path}_metadata.pkl", 'rb') as f:
+            metadata_path = SCRIPT_DIR / "faiss_db_metadata.pkl"
+            with open(metadata_path, 'rb') as f:
                 metadata = pickle.load(f)
                 doc_texts = metadata['doc_texts']
                 doc_types = metadata['doc_types']
@@ -134,7 +141,7 @@ python convert_chroma_to_faiss.py
             st.write(f"Current directory: {os.getcwd()}")
             st.write(
                 "FAISS files exist: "
-                f"{os.path.exists(os.path.join(faiss_db_path, 'index.faiss'))}"
+                f"{(faiss_db_path / 'index.faiss').exists()}"
             )
         
         return None

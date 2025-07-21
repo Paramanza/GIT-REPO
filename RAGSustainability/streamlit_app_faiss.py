@@ -63,6 +63,19 @@ st.set_page_config(
 def initialize_rag_system():
     """Initialize the RAG system using FAISS instead of Chroma"""
     try:
+
+        # Ensure the FAISS dependency is available. ``langchain_community``
+        # defers importing ``faiss`` until runtime, so we check explicitly to
+        # provide a clear error message if the package is missing.
+        try:
+            import faiss  # type: ignore
+        except Exception:
+            st.error(
+                "❌ FAISS python package is not installed.\n"
+                "Install it with `pip install faiss-cpu` or `pip install faiss-gpu`"
+            )
+            return None
+
         embeddings = OpenAIEmbeddings(openai_api_key=api_key)
         
         # Try to load existing FAISS database. ``FAISS.save_local`` stores

@@ -36,10 +36,15 @@ load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     try:
-        api_key = st.secrets.get("OPENAI_API_KEY", "")
+        api_key = st.secrets["OPENAI_API_KEY"]
     except Exception:
         api_key = ""
-if api_key:
+
+if not api_key:
+    st.warning(
+        "OpenAI API key not found. Set OPENAI_API_KEY in environment or Streamlit secrets."
+    )
+else:
     os.environ["OPENAI_API_KEY"] = api_key
 
 # Page configuration
@@ -54,7 +59,7 @@ st.set_page_config(
 def initialize_rag_system():
     """Initialize the RAG system using FAISS instead of Chroma"""
     try:
-        embeddings = OpenAIEmbeddings()
+        embeddings = OpenAIEmbeddings(openai_api_key=api_key)
         
         # Try to load existing FAISS database. ``FAISS.save_local`` stores
         # ``index.faiss`` and ``index.pkl`` inside the target directory, so we
@@ -86,7 +91,7 @@ python convert_chroma_to_faiss.py
         reduced_vectors = pca.fit_transform(vectors)
         
         # Initialize LLM and conversation chain
-        llm = ChatOpenAI(temperature=0.7, model_name=MODEL)
+        llm = ChatOpenAI(temperature=0.7, model_name=MODEL, openai_api_key=api_key)
         memory = ConversationBufferMemory(
             memory_key='chat_history', 
             return_messages=True, 

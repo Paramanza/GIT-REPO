@@ -6,6 +6,8 @@ Uses FAISS instead of Chroma to avoid SQLite issues on Streamlit Cloud
 
 import os
 import sys
+import subprocess
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
@@ -23,14 +25,32 @@ from langchain.schema import Document
 
 # Configuration
 MODEL = "gpt-4o-mini"
-faiss_db_path = "faiss_db"
+# Determine the path to the FAISS index relative to this file so the app works
+# regardless of the current working directory.
+SCRIPT_DIR = Path(__file__).resolve().parent
+faiss_db_path = SCRIPT_DIR / "faiss_db"
 K_FACTOR = 25
 
 # Load environment variables
 load_dotenv()
-api_key = os.getenv('OPENAI_API_KEY') or st.secrets.get('OPENAI_API_KEY', '')
-if api_key:
-    os.environ['OPENAI_API_KEY'] = api_key
+
+# Gracefully load the OpenAI API key either from the environment or, if
+# available, from Streamlit's secrets file. Accessing ``st.secrets`` when no
+# ``secrets.toml`` file exists raises ``StreamlitSecretNotFoundError`` so we
+# guard against that scenario.
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    try:
+        api_key = st.secrets["OPENAI_API_KEY"]
+    except Exception:
+        api_key = ""
+
+if not api_key:
+    st.warning(
+        "OpenAI API key not found. Set OPENAI_API_KEY in environment or Streamlit secrets."
+    )
+else:
+    os.environ["OPENAI_API_KEY"] = api_key
 
 # Page configuration
 st.set_page_config(
@@ -44,15 +64,49 @@ st.set_page_config(
 def initialize_rag_system():
     """Initialize the RAG system using FAISS instead of Chroma"""
     try:
-        embeddings = OpenAIEmbeddings()
+        # Ensure the FAISS dependency is available. ``langchain_community``
+        # defers importing ``faiss`` until runtime, so we check explicitly to
+        # provide a clear error message if the package is missing. If it is not
+        # installed, attempt a one-time automatic installation of ``faiss-cpu``.
+        try:
+            import faiss  # type: ignore
+        except Exception:
+            st.warning(
+                "FAISS package not found. Attempting to install `faiss-cpu`..."
+            )
+            try:
+                subprocess.check_call([
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "faiss-cpu",
+                ])
+                import faiss  # type: ignore  # noqa: F401
+                st.success("FAISS installed successfully.")
+            except Exception as install_error:  # pragma: no cover - best effort
+                st.error(
+                    "❌ Failed to install FAISS automatically: "
+                    f"{install_error}\n"
+                    "Install it manually with `pip install faiss-cpu` or "
+                    "`pip install faiss-gpu`."
+                )
+                return None
+
+        embeddings = OpenAIEmbeddings(openai_api_key=api_key)
         
-        # Try to load existing FAISS database
-        if os.path.exists(f"{faiss_db_path}.faiss") and os.path.exists(f"{faiss_db_path}.pkl"):
+        # Try to load existing FAISS database. ``FAISS.save_local`` stores
+        # ``index.faiss`` and ``index.pkl`` inside the target directory, so we
+        # check for those files instead of ``faiss_db_path.faiss``.
+        index_faiss = faiss_db_path / "index.faiss"
+        index_pkl = faiss_db_path / "index.pkl"
+        if index_faiss.exists() and index_pkl.exists():
             st.info("Loading existing FAISS database...")
-            vectorstore = FAISS.load_local(faiss_db_path, embeddings, allow_dangerous_deserialization=True)
-            
+            vectorstore = FAISS.load_local(str(faiss_db_path), embeddings, allow_dangerous_deserialization=True)
+
             # Load metadata
-            with open(f"{faiss_db_path}_metadata.pkl", 'rb') as f:
+            metadata_path = SCRIPT_DIR / "faiss_db_metadata.pkl"
+            with open(metadata_path, 'rb') as f:
                 metadata = pickle.load(f)
                 doc_texts = metadata['doc_texts']
                 doc_types = metadata['doc_types']
@@ -72,7 +126,7 @@ python convert_chroma_to_faiss.py
         reduced_vectors = pca.fit_transform(vectors)
         
         # Initialize LLM and conversation chain
-        llm = ChatOpenAI(temperature=0.7, model_name=MODEL)
+        llm = ChatOpenAI(temperature=0.7, model_name=MODEL, openai_api_key=api_key)
         memory = ConversationBufferMemory(
             memory_key='chat_history', 
             return_messages=True, 
@@ -113,7 +167,10 @@ python convert_chroma_to_faiss.py
         with st.expander("🔍 System Information"):
             st.write(f"Python version: {sys.version}")
             st.write(f"Current directory: {os.getcwd()}")
-            st.write(f"FAISS files exist: {os.path.exists(f'{faiss_db_path}.faiss')}")
+            st.write(
+                "FAISS files exist: "
+                f"{(faiss_db_path / 'index.faiss').exists()}"
+            )
         
         return None
 

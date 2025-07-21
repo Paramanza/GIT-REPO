@@ -1,50 +1,41 @@
 #!/usr/bin/env python3
 """
-Streamlit version of the RAG Sustainability Chatbot
-Handles SQLite version issues for Streamlit Cloud deployment
+FAISS-based Streamlit version of the RAG Sustainability Chatbot
+Uses FAISS instead of Chroma to avoid SQLite issues on Streamlit Cloud
 """
 
-# CRITICAL: Handle SQLite version issue BEFORE any other imports
-import sys
 import os
-
-# Force pysqlite3 to replace sqlite3 before any imports that might use it
-try:
-    import pysqlite3 # type: ignore
-    sys.modules['sqlite3'] = pysqlite3
-    print("✅ Successfully loaded pysqlite3")
-except ImportError:
-    print("⚠️  pysqlite3 not available, using system sqlite3")
-    pass
-
-# Now safe to import other packages
-import sqlite3
+import sys
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
 import streamlit as st # type: ignore
 import plotly.graph_objects as go
 from sklearn.decomposition import PCA
+import pickle
+import faiss
 
-# Import LangChain components after SQLite fix
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import FAISS
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain_core.callbacks import StdOutCallbackHandler
+from langchain.schema import Document
 
 # Configuration
 MODEL = "gpt-4o-mini"
-db_name = "vector_db"
+faiss_db_path = "faiss_db"
 K_FACTOR = 25
 
 # Load environment variables
 load_dotenv()
-os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY', st.secrets.get('OPENAI_API_KEY', ''))
+api_key = os.getenv('OPENAI_API_KEY') or st.secrets.get('OPENAI_API_KEY', '')
+if api_key:
+    os.environ['OPENAI_API_KEY'] = api_key
 
 # Page configuration
 st.set_page_config(
-    page_title="RAG Sustainability Chatbot",
+    page_title="RAG Sustainability Chatbot (FAISS)",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -52,29 +43,30 @@ st.set_page_config(
 
 @st.cache_resource
 def initialize_rag_system():
-    """Initialize the RAG system with caching for better performance"""
+    """Initialize the RAG system using FAISS instead of Chroma"""
     try:
-        # Check SQLite version
-        sqlite_version = sqlite3.sqlite_version
-        st.info(f"Using SQLite version: {sqlite_version}")
-        
-        # Check if we have the minimum required version
-        min_version = "3.35.0"
-        if sqlite_version < min_version:
-            st.warning(f"SQLite version {sqlite_version} is below required {min_version}")
-            st.info("Attempting to use vector database anyway...")
-        
         embeddings = OpenAIEmbeddings()
-        vectorstore = Chroma(persist_directory=db_name, embedding_function=embeddings)
         
-        # Get vectors and metadata
-        collection = vectorstore._collection
-        result = collection.get(include=['embeddings', 'documents', 'metadatas'])
-        
-        vectors = np.array(result['embeddings'])
-        doc_texts = result['documents']
-        metadatas = result['metadatas']
-        doc_types = [metadata['doc_type'] for metadata in metadatas]
+        # Try to load existing FAISS database
+        if os.path.exists(f"{faiss_db_path}.faiss") and os.path.exists(f"{faiss_db_path}.pkl"):
+            st.info("Loading existing FAISS database...")
+            vectorstore = FAISS.load_local(faiss_db_path, embeddings, allow_dangerous_deserialization=True)
+            
+            # Load metadata
+            with open(f"{faiss_db_path}_metadata.pkl", 'rb') as f:
+                metadata = pickle.load(f)
+                doc_texts = metadata['doc_texts']
+                doc_types = metadata['doc_types']
+                vectors = metadata['vectors']
+            
+        else:
+            st.error("❌ FAISS database not found!")
+            st.write("**To create FAISS database from your Chroma database:**")
+            st.code("""
+# Run this script locally to convert Chroma to FAISS:
+python convert_chroma_to_faiss.py
+            """)
+            return None
         
         # Create PCA for visualization
         pca = PCA(n_components=3)
@@ -97,7 +89,7 @@ def initialize_rag_system():
             output_key="answer",
         )
         
-        st.success("✅ RAG system initialized successfully!")
+        st.success("✅ FAISS-based RAG system initialized successfully!")
         
         return {
             'embeddings': embeddings,
@@ -110,20 +102,19 @@ def initialize_rag_system():
             'conversation_chain': conversation_chain
         }
     except Exception as e:
-        st.error(f"❌ Error initializing RAG system: {str(e)}")
+        st.error(f"❌ Error initializing FAISS RAG system: {str(e)}")
         
         # Show detailed error information
         st.error("**Troubleshooting Steps:**")
-        st.write("1. SQLite version issue: Try deploying with chromadb==0.4.22")
-        st.write("2. Missing vector database: Ensure vector_db/ folder is in your repository")
-        st.write("3. Dependencies: Check that all packages installed correctly")
+        st.write("1. Convert your Chroma database to FAISS using the conversion script")
+        st.write("2. Ensure FAISS database files are in your repository")
+        st.write("3. Check that OpenAI API key is configured")
         
         # Show system information for debugging
         with st.expander("🔍 System Information"):
             st.write(f"Python version: {sys.version}")
-            st.write(f"SQLite version: {sqlite3.sqlite_version}")
             st.write(f"Current directory: {os.getcwd()}")
-            st.write(f"Vector DB path exists: {os.path.exists(db_name)}")
+            st.write(f"FAISS files exist: {os.path.exists(f'{faiss_db_path}.faiss')}")
         
         return None
 
@@ -200,7 +191,7 @@ def create_visualization_plot(reduced_vectors, doc_types, doc_texts, query_vecto
             )
     
     layout = go.Layout(
-        title="3D Visualization of RAG Knowledge Base",
+        title="3D Visualization of RAG Knowledge Base (FAISS)",
         height=500,
         scene=dict(
             xaxis=dict(backgroundcolor='rgb(30,30,30)', color='white'),
@@ -218,8 +209,9 @@ def create_visualization_plot(reduced_vectors, doc_types, doc_texts, query_vecto
 
 def main():
     """Main Streamlit application"""
-    st.title("🌱 RAG Sustainability Chatbot")
+    st.title("🌱 RAG Sustainability Chatbot (FAISS)")
     st.markdown("Ask questions about sustainability practices, certifications, and regulations!")
+    st.info("This version uses FAISS instead of Chroma to avoid SQLite compatibility issues.")
     
     # Initialize the RAG system
     rag_system = initialize_rag_system()
@@ -232,7 +224,7 @@ def main():
         st.write(f"**Documents:** {len(rag_system['doc_texts'])}")
         st.write(f"**Chunks:** {len(rag_system['doc_texts'])}")
         st.write(f"**K Factor:** {K_FACTOR}")
-        st.write("**Powered by:** Chroma + OpenAI")
+        st.write("**Powered by:** FAISS + OpenAI")
         
         st.header("💡 Sample Questions")
         sample_questions = [

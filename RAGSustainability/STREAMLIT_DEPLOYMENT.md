@@ -4,25 +4,50 @@ This guide helps you deploy the RAG Sustainability Chatbot to Streamlit Cloud wh
 
 ## 🚀 Quick Deployment Steps
 
-1. **Push to GitHub**: Ensure all files are committed and pushed to your GitHub repository
-2. **Deploy on Streamlit Cloud**: 
+### Method 1: ChromaDB 0.4.22 (Try This First)
+
+1. **Use updated requirements**: The `requirements.txt` now uses `chromadb==0.4.22`
+2. **Push to GitHub**: Commit and push all files
+3. **Deploy on Streamlit Cloud**: 
    - Go to [share.streamlit.io](https://share.streamlit.io)
    - Connect your GitHub repository
-   - Set the main file path to `streamlit_app.py`
+   - Set main file to `streamlit_app.py`
    - Deploy!
+
+### Method 2: FAISS Alternative (If ChromaDB Fails)
+
+1. **Convert database locally**:
+   ```bash
+   python convert_chroma_to_faiss.py
+   ```
+2. **Switch files**:
+   - Rename `requirements_faiss.txt` → `requirements.txt`
+   - Set main file to `streamlit_app_faiss.py`
+3. **Commit FAISS files**: Add `faiss_db.*` files to git
+4. **Deploy**: Same Streamlit Cloud process
 
 ## 🔧 SQLite Issue Resolution
 
 The main issue you encountered was: `RuntimeError: Your system has an unsupported version of sqlite3. Chroma requires sqlite3 >= 3.35.0.`
 
-### Solution Implemented
+### Multiple Solutions Available
 
-This repository now includes multiple fixes:
+Choose the approach that works best for your deployment:
 
-1. **pysqlite3-binary dependency** - Provides a newer SQLite version
-2. **SQLite module replacement** - Forces use of pysqlite3 when available
-3. **System packages** - Additional build tools for compilation
-4. **Proper error handling** - Graceful fallbacks and informative error messages
+#### Option 1: Older ChromaDB Version (Recommended)
+- ✅ **File**: `requirements.txt` (updated)
+- ✅ **App**: Use `streamlit_app.py`
+- Uses `chromadb==0.4.22` which has better Streamlit Cloud compatibility
+
+#### Option 2: FAISS Alternative (Most Reliable)
+- ✅ **File**: `requirements_faiss.txt`
+- ✅ **App**: Use `streamlit_app_faiss.py`  
+- ✅ **Converter**: Run `python convert_chroma_to_faiss.py` locally first
+- No SQLite dependency at all - uses FAISS for vector storage
+
+#### Option 3: pysqlite3 Fix (Backup)
+- ✅ **File**: `requirements_backup.txt`
+- Includes pysqlite3-binary and SQLite module replacement
 
 ### Files Added/Modified for SQLite Fix
 

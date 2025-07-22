@@ -168,4 +168,4 @@ if __name__ == "__main__":
         print("3. Deploy to Streamlit Cloud without SQLite issues")
     else:
         print("\n💥 Conversion failed. Please check the error messages above.")
-        sys.exit(1) 
+        sys.exit(1)

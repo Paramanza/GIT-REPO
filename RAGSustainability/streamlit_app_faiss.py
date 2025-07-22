@@ -6,6 +6,9 @@ Uses FAISS instead of Chroma to avoid SQLite issues on Streamlit Cloud
 
 import os
 import sys
+
+import subprocess
+
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -66,15 +69,32 @@ def initialize_rag_system():
 
         # Ensure the FAISS dependency is available. ``langchain_community``
         # defers importing ``faiss`` until runtime, so we check explicitly to
-        # provide a clear error message if the package is missing.
+        # provide a clear error message if the package is missing. If it is not
+        # installed, attempt a one-time automatic installation of ``faiss-cpu``.
         try:
             import faiss  # type: ignore
         except Exception:
-            st.error(
-                "❌ FAISS python package is not installed.\n"
-                "Install it with `pip install faiss-cpu` or `pip install faiss-gpu`"
+            st.warning(
+                "FAISS package not found. Attempting to install `faiss-cpu`..."
             )
-            return None
+            try:
+                subprocess.check_call([
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "faiss-cpu",
+                ])
+                import faiss  # type: ignore  # noqa: F401
+                st.success("FAISS installed successfully.")
+            except Exception as install_error:  # pragma: no cover - best effort
+                st.error(
+                    "❌ Failed to install FAISS automatically: "
+                    f"{install_error}\n"
+                    "Install it manually with `pip install faiss-cpu` or "
+                    "`pip install faiss-gpu`."
+                )
+                return None
 
         embeddings = OpenAIEmbeddings(openai_api_key=api_key)
         
@@ -362,4 +382,4 @@ def main():
                     st.write(doc.page_content[:500] + "..." if len(doc.page_content) > 500 else doc.page_content)
 
 if __name__ == "__main__":
-    main() 
+    main()

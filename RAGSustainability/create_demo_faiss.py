@@ -138,4 +138,4 @@ if __name__ == "__main__":
         print("3. Push to GitHub and deploy on Streamlit Cloud")
         print("4. Use streamlit_app_faiss.py as your main file")
     else:
-        print("\n💥 Demo creation failed.") 
+        print("\n💥 Demo creation failed.")

@@ -377,4 +377,4 @@ def main():
                     st.write(doc.page_content[:500] + "..." if len(doc.page_content) > 500 else doc.page_content)
 
 if __name__ == "__main__":
-    main() 
+    main()

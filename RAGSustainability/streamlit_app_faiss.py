@@ -6,7 +6,9 @@ Uses FAISS instead of Chroma to avoid SQLite issues on Streamlit Cloud
 
 import os
 import sys
+
 import subprocess
+
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -64,6 +66,7 @@ st.set_page_config(
 def initialize_rag_system():
     """Initialize the RAG system using FAISS instead of Chroma"""
     try:
+
         # Ensure the FAISS dependency is available. ``langchain_community``
         # defers importing ``faiss`` until runtime, so we check explicitly to
         # provide a clear error message if the package is missing. If it is not
@@ -98,9 +101,11 @@ def initialize_rag_system():
         # Try to load existing FAISS database. ``FAISS.save_local`` stores
         # ``index.faiss`` and ``index.pkl`` inside the target directory, so we
         # check for those files instead of ``faiss_db_path.faiss``.
+
         index_faiss = faiss_db_path / "index.faiss"
         index_pkl = faiss_db_path / "index.pkl"
         if index_faiss.exists() and index_pkl.exists():
+
             st.info("Loading existing FAISS database...")
             vectorstore = FAISS.load_local(str(faiss_db_path), embeddings, allow_dangerous_deserialization=True)
 

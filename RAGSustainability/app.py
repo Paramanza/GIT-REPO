@@ -1,240 +1,341 @@
+"""
+RAG Sustainability Chatbot - Main Gradio Application
+
+This is the main orchestrator for the RAG (Retrieval Augmented Generation) sustainability
+chatbot. It provides a Gradio-based web interface with:
+
+1. Interactive chat with memory and context awareness
+2. 3D visualization of the vector space using Plotly
+3. Real-time highlighting of retrieved document chunks
+4. Sample questions for testing the system
+
+The application uses a modular architecture:
+- chunker.py: Document loading and text chunking
+- vector_store.py: Vector database management and visualization
+- rag_chain.py: LangChain conversation logic and response formatting
+
+Author: RAG Sustainability Project
+"""
+
 import os
-import numpy as np
-import pandas as pd
 from dotenv import load_dotenv
 import gradio as gr
-import plotly.graph_objects as go
-from sklearn.decomposition import PCA
-from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain_chroma import Chroma
-from langchain.memory import ConversationBufferMemory
-from langchain.chains import ConversationalRetrievalChain
-from langchain_core.callbacks import StdOutCallbackHandler
 
+# Import our modular components
+from vector_store import load_existing_vector_store
+from rag_chain import create_rag_conversation_manager, RAGResponseProcessor, get_sample_questions
+from langchain_openai import OpenAIEmbeddings
+
+
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+# Model and database configuration
 MODEL = "gpt-4o-mini"
-db_name = "vector_db"
-K_FACTOR = 25
+DB_NAME = "vector_db"
+K_FACTOR = 25  # Number of chunks to retrieve per query
+TEMPERATURE = 0.7  # LLM creativity level
 
-load_dotenv()
-os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY', 'your-key-if-not-using-env')
 
-embeddings = OpenAIEmbeddings()
-vectorstore = Chroma(persist_directory=db_name, embedding_function=embeddings)
+# ============================================================================
+# INITIALIZATION
+# ============================================================================
 
-collection = vectorstore._collection
-result = collection.get(include=['embeddings', 'documents', 'metadatas'])
-
-vectors = np.array(result['embeddings'])
-doc_texts = result['documents']
-metadatas = result['metadatas']
-doc_types = [metadata['doc_type'] for metadata in metadatas]
-
-pca = PCA(n_components=3)
-reduced_vectors = pca.fit_transform(vectors)
-
-llm = ChatOpenAI(temperature=0.7, model_name=MODEL)
-memory = ConversationBufferMemory(memory_key='chat_history', return_messages=True, output_key='answer')
-retriever = vectorstore.as_retriever(search_kwargs={"k": K_FACTOR})
-conversation_chain = ConversationalRetrievalChain.from_llm(
-    llm=llm,
-    retriever=retriever,
-    memory=memory,
-    return_source_documents=True,
-    callbacks=[StdOutCallbackHandler()],
-    output_key="answer",
-)
-
-def create_initial_plot():
-    unique_doc_types = sorted(set(doc_types))
-    hover_texts = [doc[:120].replace('\n', ' ') + "..." for doc in doc_texts]
-    df = pd.DataFrame({
-        'x': reduced_vectors[:, 0],
-        'y': reduced_vectors[:, 1],
-        'z': reduced_vectors[:, 2],
-        'doc_type': doc_types,
-        'text': hover_texts,
-    })
-    traces = []
-    for doc_type in unique_doc_types:
-        group = df[df['doc_type'] == doc_type]
-        traces.append(
-            go.Scatter3d(
-                x=group['x'],
-                y=group['y'],
-                z=group['z'],
-                mode='markers',
-                name=doc_type,
-                text=group['text'],
-                hovertemplate="<b>%{text}</b><extra></extra>",
-                marker=dict(size=3, opacity=0.7),
-            )
-        )
-    layout = go.Layout(
-        title="3D Visualization of RAG Knowledge Base",
-        height=490,
-        margin=dict(l=0, r=0, b=0, t=30),
-        scene=dict(
-            xaxis=dict(backgroundcolor='rgb(30,30,30)', color='white'),
-            yaxis=dict(backgroundcolor='rgb(30,30,30)', color='white'),
-            zaxis=dict(backgroundcolor='rgb(30,30,30)', color='white'),
-            bgcolor='rgb(20,20,20)'
-        ),
-        paper_bgcolor='rgb(20,20,20)',
-        plot_bgcolor='rgb(20,20,20)',
-        font=dict(color='white'),
-        legend=dict(x=0.01, y=0.99, bgcolor='rgba(0,0,0,0)', font=dict(size=10)),
+def initialize_application():
+    """
+    Initialize the RAG application components.
+    
+    This function:
+    1. Loads environment variables
+    2. Sets up OpenAI API key
+    3. Loads the existing vector store
+    4. Creates the RAG conversation manager
+    5. Generates the initial 3D visualization
+    
+    Returns:
+        Tuple of (vector_store_manager, rag_manager, initial_plot)
+    """
+    print("🚀 Initializing RAG Sustainability Chatbot...")
+    
+    # Load environment variables
+    load_dotenv()
+    os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY', 'your-key-if-not-using-env')
+    
+    # Initialize embeddings
+    embeddings = OpenAIEmbeddings()
+    
+    # Load existing vector store
+    print("📚 Loading vector store...")
+    vector_store_manager = load_existing_vector_store(
+        db_name=DB_NAME,
+        embeddings=embeddings
     )
-    return go.Figure(data=traces, layout=layout)
-
-def create_query_plot(query_text, source_documents):
-    query_vector = embeddings.embed_query(query_text)
-    reduced_query = pca.transform([query_vector])[0]
-    source_texts = set(doc.page_content for doc in source_documents)
-    hover_texts = [doc[:120].replace('\n', ' ') + "..." for doc in doc_texts]
-    unique_doc_types = sorted(set(doc_types))
-    df = pd.DataFrame({
-        'x': reduced_vectors[:, 0],
-        'y': reduced_vectors[:, 1],
-        'z': reduced_vectors[:, 2],
-        'doc_type': doc_types,
-        'text': hover_texts,
-        'is_retrieved': [doc in source_texts for doc in doc_texts],
-    })
-    traces = []
-    for doc_type in unique_doc_types:
-        group = df[(df['doc_type'] == doc_type) & (~df['is_retrieved'])]
-        if not group.empty:
-            traces.append(
-                go.Scatter3d(
-                    x=group['x'],
-                    y=group['y'],
-                    z=group['z'],
-                    mode='markers',
-                    name=doc_type,
-                    text=group['text'],
-                    hovertemplate="<b>%{text}</b><extra></extra>",
-                    marker=dict(size=2, opacity=0.3),
-                )
-            )
-    retrieved_df = df[df['is_retrieved']]
-    if not retrieved_df.empty:
-        traces.append(
-            go.Scatter3d(
-                x=retrieved_df['x'],
-                y=retrieved_df['y'],
-                z=retrieved_df['z'],
-                mode='markers',
-                name='Retrieved Chunks',
-                text=retrieved_df['text'],
-                hovertemplate="<b>%{text}</b><extra></extra>",
-                marker=dict(size=6, color='white', opacity=1.0),
-            )
-        )
-    traces.append(
-        go.Scatter3d(
-            x=[reduced_query[0]],
-            y=[reduced_query[1]],
-            z=[reduced_query[2]],
-            mode='markers',
-            name='Your Query',
-            text=[f"Query: {query_text[:50]}..."],
-            hovertemplate="<b>%{text}</b><extra></extra>",
-            marker=dict(size=8, color='yellow', symbol='diamond'),
-        )
+    
+    # Create retriever
+    retriever = vector_store_manager.get_retriever(k=K_FACTOR)
+    
+    # Initialize RAG conversation manager
+    print("🤖 Setting up conversation chain...")
+    rag_manager = create_rag_conversation_manager(
+        retriever=retriever,
+        model_name=MODEL,
+        temperature=TEMPERATURE,
+        enable_callbacks=True
     )
-    layout = go.Layout(
-        title="Query Results in Vector Space",
-        height=490,
-        margin=dict(l=0, r=0, b=0, t=30),
-        scene=dict(
-            xaxis=dict(backgroundcolor='rgb(30,30,30)', color='white'),
-            yaxis=dict(backgroundcolor='rgb(30,30,30)', color='white'),
-            zaxis=dict(backgroundcolor='rgb(30,30,30)', color='white'),
-            bgcolor='rgb(20,20,20)'
-        ),
-        paper_bgcolor='rgb(20,20,20)',
-        plot_bgcolor='rgb(20,20,20)',
-        font=dict(color='white'),
-        legend=dict(x=0.01, y=0.99, bgcolor='rgba(0,0,0,0)', font=dict(size=10)),
-    )
-    return go.Figure(data=traces, layout=layout)
+    
+    # Create initial visualization
+    print("📊 Creating initial visualization...")
+    initial_plot = vector_store_manager.create_initial_plot()
+    
+    print("✅ Application initialized successfully!")
+    return vector_store_manager, rag_manager, initial_plot
 
-def chat_with_rag(message, history, plot_fig):
+
+# ============================================================================
+# UI INTERACTION HANDLERS
+# ============================================================================
+
+def chat_with_rag(message, history, plot_fig, vector_store_manager, rag_manager):
+    """
+    Handle chat interactions with the RAG system.
+    
+    This function processes user queries and updates the UI with:
+    - Generated responses
+    - Retrieved document chunks
+    - Updated 3D visualization highlighting relevant chunks
+    
+    Args:
+        message: User's input message
+        history: Current chat history
+        plot_fig: Current plot figure
+        vector_store_manager: Vector store manager instance
+        rag_manager: RAG conversation manager instance
+        
+    Returns:
+        Tuple of (updated_history, formatted_chunks, updated_plot)
+    """
+    # Handle empty messages
     if not message.strip():
         return history, "", plot_fig
-    result = conversation_chain.invoke({"question": message})
-    answer = result["answer"]
-    source_documents = result.get("source_documents", [])
-    history = history + [[message, answer]]
-    chunk_texts = []
-    for i, doc in enumerate(source_documents):
-        chunk_text = f"**Chunk {i+1}** (from {doc.metadata.get('doc_type', 'unknown')}):\n"
-        chunk_text += doc.page_content[:500] + "..." if len(doc.page_content) > 500 else doc.page_content
-        chunk_texts.append(chunk_text)
-    combined_chunks = "\n\n" + "="*50 + "\n\n".join(chunk_texts) if chunk_texts else "No chunks retrieved."
-    updated_plot = create_query_plot(message, source_documents)
-    return history, combined_chunks, updated_plot
+    
+    # Process query with RAG system
+    rag_result = rag_manager.query(message)
+    
+    # Update chat history and format chunks
+    updated_history, formatted_chunks = RAGResponseProcessor.process_chat_response(
+        rag_result=rag_result,
+        chat_history=history,
+        max_chunk_length=500
+    )
+    
+    # Create updated visualization
+    updated_plot = vector_store_manager.create_query_plot(
+        query_text=message,
+        source_documents=rag_result["source_documents"]
+    )
+    
+    return updated_history, formatted_chunks, updated_plot
 
-fig = create_initial_plot()
-rag_info_compact = f"""**RAG Vector Database Info:**\n• Powered by Chroma                                    • Documents: {len(doc_texts)}\n• Chunk Size: 1600 tokens                            • Total Chunks: {len(doc_texts)}\n• Chunk Overlap: 400 tokens                       • K Factor: 25 retrieved per query"""
 
-with gr.Blocks(title="RAG Sustainability Chatbot") as demo_optimized:
-    with gr.Row():
-        gr.Markdown("#  Sustainability RAG Chatbot with Vector Visualization")
-        test_questions_btn = gr.Button("Sample Questions", size="sm", scale=1)
-    with gr.Row():
-        with gr.Column(scale=3):
-            query_input = gr.Textbox(placeholder="Ask a question about sustainability... (Press Enter to send)", label="Your Question", lines=1)
-            chatbot = gr.Chatbot(label="💬 Chat History", height=250)
-            chunk_display = gr.Textbox(label="📦 Retrieved Knowledge Chunks", lines=12, max_lines=12, interactive=False)
-        with gr.Column(scale=3):
-            plot_display = gr.Plot(value=fig, label=" Vector Space Visualization")
-            info_display = gr.Textbox(value=rag_info_compact, label=" Vector Database Details", lines=5, interactive=False)
-    with gr.Column(visible=False) as test_questions_popup:
-        gr.Markdown("# Sample Questions to Test the RAG System")
-        gr.Markdown("Here are 10 detailed questions to explore the sustainability knowledge base:")
-        test_questions_text = """Cross-Document Comparison Questions:
-What are the key differences between the UK’s Green Claims Code and the US FTC Green Guides regarding the use of terms like "eco-friendly" in marketing fashion products?
-Tests understanding of regulatory nuance across jurisdictions.
+def create_database_info_text(vector_store_manager):
+    """
+    Create formatted text showing database information.
+    
+    Args:
+        vector_store_manager: Vector store manager instance
+        
+    Returns:
+        Formatted string with database statistics
+    """
+    info = vector_store_manager.get_database_info()
+    
+    return f"""**RAG Vector Database Info:**
+• Powered by Chroma                                    • Total Chunks: {info.get('total_chunks', 0)}
+• Chunk Size: 1600 tokens                            • Document Types: {info.get('unique_doc_types', 0)}
+• Chunk Overlap: 400 tokens                       • K Factor: {K_FACTOR} retrieved per query
+• Vector Dimensions: {info.get('vector_dimensions', 0)}                • PCA Components: {info.get('pca_components', 3)}"""
 
-Compare how the EU and the UK approach the responsibility of fashion businesses in substantiating environmental claims. What legal or practical requirements are in place in both regions?
-Tests synthesis between the UK Green Claims Code and EU Green Deal / Circular Economy documents.
 
-According to EU and UK guidance, what role should consumers play in identifying misleading environmental claims, and how are they supported in this role?
-Requires pulling from both consumer advice sections in the UK Green Claims Code and EU circular economy communication tools.
+def create_sample_questions_text():
+    """
+    Create formatted text with sample questions.
+    
+    Returns:
+        Formatted string with categorized sample questions
+    """
+    questions = get_sample_questions()
+    
+    # Group questions by category (based on the structure from rag_chain.py)
+    categories = [
+        ("Cross-Document Comparison Questions:", questions[0:3]),
+        ("Sustainability Metrics and Impact Analysis:", questions[3:6]),
+        ("Policy and Regulatory Questions:", questions[6:8]),
+        ("Application & Practical Evaluation:", questions[8:10])
+    ]
+    
+    formatted_text = "Here are sample questions to explore the sustainability knowledge base:\n\n"
+    
+    for category_name, category_questions in categories:
+        formatted_text += f"**{category_name}**\n\n"
+        for i, question in enumerate(category_questions, 1):
+            formatted_text += f"{i}. {question}\n\n"
+        formatted_text += "\n"
+    
+    return formatted_text
 
-Sustainability Metrics and Impact Analysis:
-How much water is required to produce a cotton T-shirt, and how does this illustrate the environmental impact of textile production in the EU?
-Tests factual recall from EU Parliament and EEA sources on water consumption.
 
-What proportion of clothes are recycled into new garments in the EU, and how does this relate to the EU’s goals for a circular economy by 2050?
-Connects micro-level statistics with high-level strategic goals.
+# ============================================================================
+# GRADIO INTERFACE
+# ============================================================================
 
-What specific environmental harms are associated with synthetic textiles in both EU and US contexts, and how do policies in each region attempt to mitigate them?
-Draws on EU microplastics policy and US FTC Green Guides on biodegradability and environmental claims.
-
-Policy and Regulatory Questions:
-What is the EU’s Extended Producer Responsibility (EPR) scheme for textiles, and how does its proposed timeline compare with UK or US regulatory efforts?
-Evaluates retrieval and comparison of timelines and policy mechanisms.
-
-What are the legal consequences for fashion businesses in the UK that make misleading green claims, and how do these compare to enforcement under the US FTC guidelines?
-Tests understanding of legal frameworks and enforcement mechanisms.
-
-Application & Practical Evaluation:
-If a fashion brand claims that a polyester jacket is “sustainable” because it uses recycled materials, what further information must they provide according to UK and EU guidance to avoid misleading consumers?
-Evaluates application of principles like lifecycle consideration, claim substantiation, and transparency.
-
-What should a fashion brand include on its product labels and marketing to comply with both the EU’s proposed Digital Product Passport and the FTC’s Green Guides?
-Cross-checks label transparency, durability, recycled content, and origin information from different jurisdictions."""
-        gr.Textbox(value=test_questions_text, label="Test Questions", lines=15, max_lines=20, interactive=False)
+def create_gradio_interface(vector_store_manager, rag_manager, initial_plot):
+    """
+    Create the Gradio interface for the RAG chatbot.
+    
+    Args:
+        vector_store_manager: Vector store manager instance
+        rag_manager: RAG conversation manager instance  
+        initial_plot: Initial 3D visualization plot
+        
+    Returns:
+        Configured Gradio Blocks interface
+    """
+    # Create database info text
+    db_info_text = create_database_info_text(vector_store_manager)
+    sample_questions_text = create_sample_questions_text()
+    
+    # Create Gradio interface
+    with gr.Blocks(title="RAG Sustainability Chatbot") as demo:
+        
+        # Header with title and sample questions button
         with gr.Row():
-            close_popup_btn = gr.Button("Close", variant="secondary")
-    def show_test_questions():
-        return gr.update(visible=True)
-    def hide_test_questions():
-        return gr.update(visible=False)
-    test_questions_btn.click(fn=show_test_questions, outputs=test_questions_popup)
-    close_popup_btn.click(fn=hide_test_questions, outputs=test_questions_popup)
-    query_input.submit(fn=chat_with_rag, inputs=[query_input, chatbot, plot_display], outputs=[chatbot, chunk_display, plot_display]).then(lambda: "", outputs=[query_input])
+            gr.Markdown("#  Sustainability RAG Chatbot with Vector Visualization")
+            test_questions_btn = gr.Button("📋 Sample Questions", size="sm", scale=1)
+        
+        # Main interface layout
+        with gr.Row():
+            # Left column: Chat interface
+            with gr.Column(scale=3):
+                query_input = gr.Textbox(
+                    placeholder="Ask a question about sustainability... (Press Enter to send)",
+                    label="Your Question",
+                    lines=1
+                )
+                
+                chatbot = gr.Chatbot(
+                    label="💬 Chat History",
+                    height=250
+                )
+                
+                chunk_display = gr.Textbox(
+                    label="📦 Retrieved Knowledge Chunks",
+                    lines=12,
+                    max_lines=12,
+                    interactive=False
+                )
+            
+            # Right column: Visualization and info
+            with gr.Column(scale=3):
+                plot_display = gr.Plot(
+                    value=initial_plot,
+                    label=" Vector Space Visualization"
+                )
+                
+                info_display = gr.Textbox(
+                    value=db_info_text,
+                    label="ℹ️ Vector Database Details",
+                    lines=5,
+                    interactive=False
+                )
+        
+        # Sample questions popup (initially hidden)
+        with gr.Column(visible=False) as test_questions_popup:
+            gr.Markdown("#  Sample Questions to Test the RAG System")
+            gr.Markdown("These questions are designed to test different aspects of the knowledge base:")
+            
+            gr.Textbox(
+                value=sample_questions_text,
+                label="Sample Questions by Category",
+                lines=20,
+                max_lines=25,
+                interactive=False
+            )
+            
+            with gr.Row():
+                close_popup_btn = gr.Button("✖ Close", variant="secondary")
+        
+        # Event handlers for popup
+        def show_test_questions():
+            return gr.update(visible=True)
+        
+        def hide_test_questions():
+            return gr.update(visible=False)
+        
+        test_questions_btn.click(
+            fn=show_test_questions,
+            outputs=test_questions_popup
+        )
+        
+        close_popup_btn.click(
+            fn=hide_test_questions,
+            outputs=test_questions_popup
+        )
+        
+        # Chat interaction handler
+        def chat_handler(message, history, plot_fig):
+            return chat_with_rag(
+                message=message,
+                history=history,
+                plot_fig=plot_fig,
+                vector_store_manager=vector_store_manager,
+                rag_manager=rag_manager
+            )
+        
+        # Handle chat submission
+        query_input.submit(
+            fn=chat_handler,
+            inputs=[query_input, chatbot, plot_display],
+            outputs=[chatbot, chunk_display, plot_display]
+        ).then(
+            lambda: "",  # Clear input field
+            outputs=[query_input]
+        )
+    
+    return demo
 
-demo_optimized.launch(inbrowser=True, share=False)
+
+# ============================================================================
+# MAIN APPLICATION
+# ============================================================================
+
+def main():
+    """
+    Main function to initialize and launch the RAG chatbot application.
+    """
+    try:
+        # Initialize application components
+        vector_store_manager, rag_manager, initial_plot = initialize_application()
+        
+        # Create and launch Gradio interface
+        print("🌐 Creating Gradio interface...")
+        demo = create_gradio_interface(vector_store_manager, rag_manager, initial_plot)
+        
+        print("🚀 Launching application...")
+        demo.launch(
+            inbrowser=True,
+            share=False,
+            show_error=True
+        )
+        
+    except FileNotFoundError as e:
+        print(f"❌ Vector store not found: {e}")
+        print("💡 Please run data_prep.py first to create the vector database")
+        
+    except Exception as e:
+        print(f"❌ Error initializing application: {e}")
+        raise
+
+
+if __name__ == "__main__":
+    main()

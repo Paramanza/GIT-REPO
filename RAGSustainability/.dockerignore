@@ -1,0 +1,129 @@
+# =============================================================================
+# Docker Ignore File for RAG Sustainability Chatbot
+# =============================================================================
+# This file specifies which files and directories should be excluded from
+# the Docker build context to keep the image lean and secure.
+# =============================================================================
+
+# Git and version control
+.git/
+.gitignore
+.gitattributes
+
+# Python cache and compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.py[cod]
+*$py.class
+*.so
+.coverage
+htmlcov/
+
+# Virtual environments
+.env
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.python-version
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Development and testing
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation and markdown (except README.md)
+*.md
+!README.md
+docs/
+
+# Local development files
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Jupyter notebooks (if any)
+.ipynb_checkpoints/
+*.ipynb
+
+# Mac OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Docker files (we don't need these inside the container)
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# CI/CD and deployment files
+.github/
+.gitlab-ci.yml
+.travis.yml
+fly.toml
+
+# Local data files that shouldn't be in production
+sample_questions.txt
+chunk_preview.csv
+
+# Package manager files (we install from requirements.txt)
+pyproject.toml
+uv.lock
+packages.txt
+
+# Large files that might accidentally be in the repo
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+# =============================================================================
+# Note: We DO want to include:
+# - requirements.txt (for pip install)
+# - All Python source files (*.py)
+# - knowledge-base/ directory (our document corpus)
+# - vector_db/ directory (the pre-built vector store)
+# - README.md (for documentation)
+# ============================================================================= 

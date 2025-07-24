@@ -174,14 +174,105 @@ Core libraries and their purposes:
 | **scikit-learn** | PCA dimensionality reduction |
 | **openai** | Text embeddings and chat completions |
 
-## 🐳 Deployment
+## 🐳 Docker Deployment
 
-The codebase is ready for containerization:
+### Quick Deploy to Fly.io
 
-1. **Clean Dependencies**: No unused packages
-2. **Modular Structure**: Easy to package
-3. **Environment Variables**: Configurable API keys
-4. **Error Handling**: Graceful failure modes
+```bash
+# 1. Install Fly.io CLI
+curl -L https://fly.io/install.sh | sh
+
+# 2. Login to Fly.io
+flyctl auth login
+
+# 3. Update app name in fly.toml (make it unique)
+# Edit line 15: app = "your-unique-app-name"
+
+# 4. Set your OpenAI API key
+flyctl secrets set OPENAI_API_KEY=your_actual_openai_api_key_here
+
+# 5. Deploy
+flyctl deploy
+
+# 6. Open your deployed app
+flyctl open
+```
+
+### Local Docker Testing
+
+```bash
+# Build the Docker image
+docker build -t rag-sustainability-chatbot .
+
+# Run locally (replace with your API key)
+docker run -p 7860:7860 -e OPENAI_API_KEY=your_key_here rag-sustainability-chatbot
+
+# Access at http://localhost:7860
+```
+
+### Docker Configuration
+
+The deployment includes:
+
+- **Base Image**: `python:3.11-slim` for optimal size/performance
+- **Vector Store**: ~500MB included in image for simplicity
+- **Port**: Exposes 7860 (Gradio default)
+- **Security**: Non-root user, health checks, secret management
+- **Optimization**: Layer caching, minimal dependencies
+
+### Deployment Files
+
+| File | Purpose |
+|------|---------|
+| `Dockerfile` | Production container configuration |
+| `fly.toml` | Fly.io deployment settings |
+| `.dockerignore` | Excludes unnecessary files from build |
+
+### Resource Requirements
+
+- **Memory**: 4GB (for vector store + ML operations)
+- **CPU**: 2 vCPU (shared) for responsive performance
+- **Storage**: ~1GB (vector store + dependencies)
+- **Cold Start**: ~30-60 seconds first request
+
+### Secrets Management
+
+Never include secrets in Docker images. Set them via Fly.io:
+
+```bash
+# Set OpenAI API key
+flyctl secrets set OPENAI_API_KEY=sk-your-key-here
+
+# View current secrets
+flyctl secrets list
+
+# Remove a secret
+flyctl secrets unset SECRET_NAME
+```
+
+### Monitoring & Debugging
+
+```bash
+# View logs
+flyctl logs
+
+# Check status
+flyctl status
+
+# Access app shell
+flyctl ssh console
+
+# Scale resources
+flyctl scale memory 8gb
+flyctl scale count 2
+```
+
+### Cost Optimization
+
+- **Auto-scaling**: Machines stop when idle, start on demand
+- **Shared CPU**: More cost-effective than dedicated
+- **Single Region**: Deploy to one region initially
+- **Monitoring**: Use `flyctl status` to monitor usage
 
 ## 📈 Performance
 

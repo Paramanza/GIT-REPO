@@ -1,0 +1,112 @@
+# =============================================================================
+# Fly.io Configuration for RAG Sustainability Chatbot
+# =============================================================================
+# This file configures the deployment of the RAG chatbot to Fly.io.
+# 
+# Before deploying:
+# 1. Update app name to something unique (line ~15)
+# 2. Set your OpenAI API key: flyctl secrets set OPENAI_API_KEY=your_key_here
+# 3. Deploy with: flyctl deploy
+# =============================================================================
+
+# Application name - CHANGE THIS to something unique for your deployment
+app = "sustainability_bot_with_3d_plot"
+
+# Fly.io platform version
+version = 2
+
+# Build configuration
+[build]
+  # Use the Dockerfile in the current directory
+  dockerfile = "Dockerfile"
+
+# Environment variables (non-secret)
+[env]
+  # Tell the app it's running in Docker/production mode
+  DOCKER_ENV = "true"
+  # Python optimization
+  PYTHONUNBUFFERED = "1"
+
+# HTTP service configuration
+[[services]]
+  # Internal port (what the app listens on inside the container)
+  internal_port = 7860
+  
+  # Protocol for the service
+  protocol = "tcp"
+  
+  # Automatically stop machines when not in use (cost optimization)
+  # auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+  max_machines_running = 3
+
+  # HTTP checks to determine if the app is healthy
+  [[services.tcp_checks]]
+    grace_period = "60s"     # Time to wait before starting checks
+    interval = "30s"         # How often to check
+    restart_limit = 6        # Number of restarts before giving up
+    timeout = "10s"          # How long to wait for response
+
+  # Port configuration for external access
+  [[services.ports]]
+    force_https = true       # Always redirect HTTP to HTTPS
+    handlers = ["http"]      # Handle HTTP requests
+    port = 80               # External port for HTTP (redirects to HTTPS)
+
+  [[services.ports]]
+    handlers = ["tls", "http"]  # Handle HTTPS requests
+    port = 443                  # External port for HTTPS
+
+# Resource allocation
+[resources]
+  # Virtual machine configuration
+  # Options: shared-cpu-1x, dedicated-cpu-1x, dedicated-cpu-2x, etc.
+  CPU = "shared-cpu-1x"     # 2 vCPU, 4GB RAM (good for ML workloads)
+  
+  # Memory allocation (MB)
+  memory = 1024             # Sufficient for vector store and embeddings
+
+# Region configuration
+[placement]
+  # Primary region for deployment
+  # Options: ams, cdg, dfw, ewr, fra, hkg, iad, lax, lhr, nrt, ord, scl, sea, sjc, syd, yyz
+  region = "lhr"             # London Heathrow
+
+# Optional: Add more regions for global distribution
+# [[placement.regions]]
+#   region = "lhr"           # London
+# [[placement.regions]]
+#   region = "fra"           # Frankfurt
+
+# Restart policy
+[restart]
+  policy = "on-failure"      # Restart only if the app crashes
+  max_restarts = 3           # Maximum number of restart attempts
+
+# =============================================================================
+# Deployment Instructions:
+#
+# 1. Install Fly.io CLI:
+#    curl -L https://fly.io/install.sh | sh
+#
+# 2. Login to Fly.io:
+#    flyctl auth login
+#
+# 3. Set your OpenAI API key as a secret:
+#    flyctl secrets set OPENAI_API_KEY=your_actual_openai_api_key_here
+#
+# 4. Deploy the application:
+#    flyctl deploy
+#
+# 5. Open the deployed app:
+#    flyctl open
+#
+# 6. Monitor logs:
+#    flyctl logs
+#
+# 7. Check app status:
+#    flyctl status
+#
+# Note: The first deployment may take 5-10 minutes due to the large vector store
+# ============================================================================= 

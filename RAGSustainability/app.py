@@ -322,11 +322,26 @@ def main():
         demo = create_gradio_interface(vector_store_manager, rag_manager, initial_plot)
         
         print("🚀 Launching application...")
-        demo.launch(
-            inbrowser=True,
-            share=False,
-            show_error=True
-        )
+        
+        # Check if running in Docker (for deployment)
+        is_docker = os.getenv('DOCKER_ENV') == 'true'
+        
+        if is_docker:
+            # Docker/production configuration
+            demo.launch(
+                server_name="0.0.0.0",
+                server_port=7860,
+                share=False,
+                show_error=True,
+                inbrowser=False
+            )
+        else:
+            # Local development configuration
+            demo.launch(
+                inbrowser=True,
+                share=False,
+                show_error=True
+            )
         
     except FileNotFoundError as e:
         print(f"❌ Vector store not found: {e}")

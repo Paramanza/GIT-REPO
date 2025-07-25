@@ -48,13 +48,13 @@ version = 2
     handlers = ["tls", "http"]  # Handle HTTPS requests
     port = 443                  # External port for HTTPS
 
-# Resource allocation - Balanced for ML workload responsiveness
-[vm]
-  # Virtual machine configuration (correct syntax for Fly.io v2)
-  size = "shared-cpu-2x"    # 2 vCPU needed for ML operations and responsiveness
+# Resource allocation
+[resources]
+  # Virtual machine configuration
+  cpu = "shared-cpu-2x"     # 2 vCPU, 4GB RAM (good for ML workloads)
   
-  # Memory allocation - optimized but sufficient
-  memory = "4gb"            # Reduced from 4GB but provides processing headroom
+  # Memory allocation (MB)
+  memory = 4096             # Sufficient for vector store and embeddings
 
 # Region configuration
 [placement]

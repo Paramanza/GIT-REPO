@@ -58,19 +58,35 @@ def initialize_application():
     """
     print("🚀 Initializing RAG Sustainability Chatbot...")
     
+    # Check environment
+    is_docker = os.getenv('DOCKER_ENV') == 'true'
+    print(f"🔍 Environment: {'Docker' if is_docker else 'Local'}")
+    print(f"🔍 DOCKER_ENV = {os.getenv('DOCKER_ENV')}")
+    
     # Load environment variables
     load_dotenv()
-    os.environ['OPENAI_API_KEY'] = os.getenv('OPENAI_API_KEY', 'your-key-if-not-using-env')
+    api_key = os.getenv('OPENAI_API_KEY', 'your-key-if-not-using-env')
+    if api_key == 'your-key-if-not-using-env':
+        print("⚠️  Warning: Using default API key placeholder")
+    else:
+        print(f"🔑 OpenAI API key loaded: {api_key[:8]}...")
+    os.environ['OPENAI_API_KEY'] = api_key
     
     # Initialize embeddings
     embeddings = OpenAIEmbeddings()
     
-    # Load existing vector store
+    # Load existing vector store with memory optimization
     print("📚 Loading vector store...")
-    vector_store_manager = load_existing_vector_store(
-        db_name=DB_NAME,
-        embeddings=embeddings
-    )
+    try:
+        vector_store_manager = load_existing_vector_store(
+            db_name=DB_NAME,
+            embeddings=embeddings
+        )
+        print(f"✅ Vector store loaded successfully")
+    except Exception as e:
+        print(f"❌ Error loading vector store: {e}")
+        print("💡 This might be due to memory constraints during startup")
+        raise
     
     # Create retriever
     retriever = vector_store_manager.get_retriever(k=K_FACTOR)
@@ -268,7 +284,7 @@ def create_gradio_interface(vector_store_manager, rag_manager, initial_plot):
         # Event handlers for popup
         def show_test_questions():
             return gr.update(visible=True)
-        
+            
         def hide_test_questions():
             return gr.update(visible=False)
         
@@ -323,20 +339,37 @@ def main():
         
         print("🚀 Launching application...")
         
-        # Check if running in Docker (for deployment)
-        is_docker = os.getenv('DOCKER_ENV') == 'true'
+        # Check if running in Docker (for deployment) with multiple detection methods
+        is_docker = (
+            os.getenv('DOCKER_ENV') == 'true' or 
+            os.path.exists('/.dockerenv') or 
+            os.getenv('FLY_APP_NAME') is not None
+        )
+        
+        print(f"🔍 Environment detection:")
+        print(f"   DOCKER_ENV = {os.getenv('DOCKER_ENV')}")
+        print(f"   /.dockerenv exists = {os.path.exists('/.dockerenv')}")
+        print(f"   FLY_APP_NAME = {os.getenv('FLY_APP_NAME')}")
+        print(f"   is_docker = {is_docker}")
         
         if is_docker:
-            # Docker/production configuration
+            # Docker/production configuration - be very explicit about host and port
+            print("🐳 Running in Docker mode - binding to 0.0.0.0:7860")
+            print("🔧 Gradio will start on all interfaces (0.0.0.0)")
+            
             demo.launch(
                 server_name="0.0.0.0",
                 server_port=7860,
                 share=False,
                 show_error=True,
-                inbrowser=False
+                inbrowser=False,
+                debug=False,
+                quiet=False,
+                prevent_thread_lock=False
             )
         else:
             # Local development configuration
+            print("💻 Running in local mode")
             demo.launch(
                 inbrowser=True,
                 share=False,

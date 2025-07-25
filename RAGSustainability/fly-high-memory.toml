@@ -1,11 +1,11 @@
 # =============================================================================
-# Fly.io Configuration for RAG Sustainability Chatbot (No Health Checks)
+# Fly.io Configuration for RAG Sustainability Chatbot (High Memory)
 # =============================================================================
-# This is a simplified version for initial deployment without health checks
-# to help debug connection issues.
+# This configuration uses more memory to handle the large vector store
+# during startup and operation.
 # =============================================================================
 
-# Application name - CHANGE THIS to something unique for your deployment
+# Application name - should match your existing app
 app = "sustainability-bot-with-3d-plot"
 
 # Fly.io platform version
@@ -31,12 +31,17 @@ version = 2
   # Protocol for the service
   protocol = "tcp"
   
-  # Simplified auto-scaling
+  # Simplified auto-scaling for high memory
   auto_start_machines = true
   min_machines_running = 1
-  
-  # NO HEALTH CHECKS for initial deployment
-  # This removes the timeout issues while we debug
+  max_machines_running = 1  # Keep to 1 machine for cost control
+
+  # Extended health checks for ML app startup
+  [[services.tcp_checks]]
+    grace_period = "300s"    # 5 minutes grace period for vector store loading
+    interval = "60s"         # Check every minute
+    restart_limit = 2        # Fewer restarts to avoid restart loops
+    timeout = "45s"          # Longer timeout for health checks
 
   # Port configuration for external access
   [[services.ports]]
@@ -48,13 +53,11 @@ version = 2
     handlers = ["tls", "http"]  # Handle HTTPS requests
     port = 443                  # External port for HTTPS
 
-# Resource allocation - Balanced for ML workload responsiveness
+# Resource allocation - Use more memory for vector store
 [vm]
-  # Virtual machine configuration (correct syntax for Fly.io v2)
-  size = "shared-cpu-2x"    # 2 vCPU needed for ML operations and responsiveness
-  
-  # Memory allocation - optimized but sufficient
-  memory = "4gb"            # Reduced from 4GB but provides processing headroom
+  # Upgrade to dedicated CPU with more memory
+  size = "dedicated-cpu-1x"   # 1 dedicated vCPU, 2GB RAM base
+  memory = "8gb"              # 8GB total memory for vector store + operations
 
 # Region configuration
 [placement]
@@ -62,19 +65,22 @@ version = 2
   region = "lhr"             # London Heathrow
 
 # =============================================================================
-# Deployment Instructions for Debugging:
+# Usage Instructions:
 #
-# 1. Copy this file over fly.toml:
-#    cp fly-no-healthcheck.toml fly.toml
+# 1. This configuration uses 8GB memory to handle:
+#    - 500MB vector store
+#    - Python dependencies and ML libraries
+#    - PCA computation on embeddings
+#    - Gradio interface and runtime overhead
 #
-# 2. Deploy without health checks:
+# 2. To use this configuration:
+#    cp fly-high-memory.toml fly.toml
 #    flyctl deploy
 #
-# 3. Check if the app starts properly:
+# 3. Cost: ~$30-50/month for dedicated-cpu-1x with 8GB
+#    (vs ~$15-20/month for shared-cpu-2x with 4GB)
+#
+# 4. Monitor memory usage after deployment:
+#    flyctl status
 #    flyctl logs
-#
-# 4. Test the endpoint:
-#    flyctl open
-#
-# 5. Once working, add health checks back gradually
 # ============================================================================= 

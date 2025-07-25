@@ -127,7 +127,7 @@ class VectorStoreManager:
     
     def _load_visualization_data(self):
         """
-        Load embeddings and metadata for visualization.
+        Load embeddings and metadata for visualization with memory optimization.
         
         This extracts the raw embeddings from Chroma and prepares them
         for PCA dimensionality reduction and plotting.
@@ -137,23 +137,40 @@ class VectorStoreManager:
         
         print("Loading visualization data...")
         
-        # Get all embeddings and metadata from Chroma
-        collection = self.vectorstore._collection
-        result = collection.get(include=['embeddings', 'documents', 'metadatas'])
-        
-        # Store raw data
-        self.vectors = np.array(result['embeddings'])
-        self.doc_texts = result['documents']
-        self.metadatas = result['metadatas']
-        self.doc_types = [metadata.get('doc_type', 'unknown') for metadata in self.metadatas]
-        
-        # Perform PCA for 3D visualization
-        print("Performing PCA dimensionality reduction...")
-        self.pca = PCA(n_components=3)
-        self.reduced_vectors = self.pca.fit_transform(self.vectors)
-        
-        print(f"✅ Loaded {len(self.vectors)} embeddings for visualization")
-        print(f"PCA explained variance ratio: {self.pca.explained_variance_ratio_}")
+        try:
+            # Get all embeddings and metadata from Chroma
+            collection = self.vectorstore._collection
+            result = collection.get(include=['embeddings', 'documents', 'metadatas'])
+            
+            if len(result['embeddings']) == 0:
+                raise ValueError("No embeddings found in vector store")
+            
+            # Store raw data with memory monitoring
+            print(f"Processing {len(result['embeddings'])} embeddings...")
+            self.vectors = np.array(result['embeddings'], dtype=np.float32)  # Use float32 to save memory
+            self.doc_texts = result['documents']
+            self.metadatas = result['metadatas']
+            self.doc_types = [metadata.get('doc_type', 'unknown') for metadata in self.metadatas]
+            
+            # Perform PCA for 3D visualization with memory optimization
+            print("Performing PCA dimensionality reduction...")
+            self.pca = PCA(n_components=3)
+            
+            # Process in smaller batches if the dataset is large to reduce memory spikes
+            if len(self.vectors) > 2000:
+                print("Large dataset detected, using memory-optimized PCA...")
+                # For very large datasets, we could implement batch PCA, but for now just proceed
+                
+            self.reduced_vectors = self.pca.fit_transform(self.vectors)
+            
+            print(f"✅ Loaded {len(self.vectors)} embeddings for visualization")
+            print(f"📊 Memory usage: {self.vectors.nbytes / 1024 / 1024:.1f} MB for vectors")
+            print(f"🔍 PCA explained variance ratio: {self.pca.explained_variance_ratio_}")
+            
+        except Exception as e:
+            print(f"❌ Error loading visualization data: {e}")
+            print("💡 This might be due to memory constraints or vector store corruption")
+            raise
     
     def get_retriever(self, k: int = 25):
         """

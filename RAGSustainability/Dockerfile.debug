@@ -1,0 +1,78 @@
+# =============================================================================
+# DEBUG VERSION - RAG Sustainability Chatbot - Docker Configuration
+# =============================================================================
+# This is a minimal debug version to test server binding without loading
+# the full vector store. Use this to isolate connection issues.
+# =============================================================================
+
+# Use Python 3.11 slim image for smaller container size
+FROM python:3.12-slim
+
+# Set metadata labels
+LABEL maintainer="RAG Sustainability Project"
+LABEL description="Debug version of RAG chatbot for connection testing"
+LABEL version="1.0-debug"
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DOCKER_ENV=true
+
+# Create a non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies (minimal for debug)
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Copy requirements first for better Docker layer caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy only the debug files (not the full vector store)
+COPY debug_app.py .
+COPY test_deployment.py .
+
+# Create a simple .env file for debug
+RUN echo "DOCKER_ENV=true" > .env
+
+# Switch to non-root user for security
+USER appuser
+
+# Expose the port that Gradio runs on
+EXPOSE 7860
+
+# Simple health check for debug
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:7860/ || exit 1
+
+# Run the debug app instead of the main app
+CMD ["python", "debug_app.py"]
+
+# =============================================================================
+# Debug Instructions:
+#
+# 1. Build debug image:
+#    docker build -f Dockerfile.debug -t rag-debug .
+#
+# 2. Test locally:
+#    docker run -p 7860:7860 rag-debug
+#
+# 3. Deploy debug version to Fly.io:
+#    Update fly.toml to use: dockerfile = "Dockerfile.debug"
+#    flyctl deploy
+#
+# 4. Check logs:
+#    flyctl logs
+#
+# 5. If debug version works, the issue is with vector store loading
+# ============================================================================= 

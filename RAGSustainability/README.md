@@ -267,6 +267,37 @@ flyctl scale memory 8gb
 flyctl scale count 2
 ```
 
+#### Troubleshooting Deployment Issues
+
+If you encounter deployment problems, use the debugging script:
+
+```bash
+# Run comprehensive debugging
+chmod +x debug_deployment.sh
+./debug_deployment.sh
+```
+
+**Common Issues & Solutions:**
+
+| Issue | Solution |
+|-------|----------|
+| "Not listening on expected address" | App not binding to 0.0.0.0:7860 - check logs for Gradio startup |
+| Health check timeouts | Use `fly-no-healthcheck.toml` for initial deployment |
+| Out of memory errors | Increase memory in `fly.toml` resources section |
+| Slow startup (>3 minutes) | Vector store loading - increase grace period |
+| Docker build fails locally | Check vector_db directory exists and has content |
+
+**Quick Fix for Health Check Issues:**
+```bash
+# Deploy without health checks first
+cp fly-no-healthcheck.toml fly.toml
+flyctl deploy
+
+# Once working, restore health checks
+git checkout fly.toml  # or restore from backup
+flyctl deploy
+```
+
 ### Cost Optimization
 
 - **Auto-scaling**: Machines stop when idle, start on demand

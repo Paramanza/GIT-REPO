@@ -66,8 +66,9 @@ USER appuser
 EXPOSE 7860
 
 # Health check to ensure the application is running
-# This checks if the Gradio server is responding on port 7860
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+# ML applications need more time to start up (loading vector store, etc.)
+# Using a generous start period and simple health check
+HEALTHCHECK --interval=60s --timeout=30s --start-period=180s --retries=5 \
     CMD curl -f http://localhost:7860/ || exit 1
 
 # Set the default command to run the application

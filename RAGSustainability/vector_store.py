@@ -1,11 +1,23 @@
 """
 Vector Store Management and Visualization Module for RAG Sustainability Chatbot
 
-This module handles:
-1. Vector database creation and management using Chroma
-2. Dimensionality reduction with PCA for 3D visualization  
-3. Plotly-based 3D scatter plot generation
-4. Query-specific visualization updates
+This module provides comprehensive vector database management and 3D visualization:
+
+1. Vector Database Operations:
+   - Creating and loading Chroma vector stores
+   - Managing embeddings and retrieval
+   - Database statistics and configuration
+
+2. 3D Visualization:
+   - PCA dimensionality reduction for visualization
+   - Interactive Plotly 3D scatter plots
+   - Query-specific highlighting and updates
+   - Color-coded organization mapping
+
+3. Memory Optimization:
+   - Efficient loading of large vector stores
+   - Optimized PCA computation
+   - Memory monitoring and reporting
 
 Author: RAG Sustainability Project
 """
@@ -24,14 +36,14 @@ from langchain.schema import Document
 
 class VectorStoreManager:
     """
-    Manages the vector database and provides visualization capabilities.
+    Manages vector database operations and provides 3D visualization capabilities.
     
-    This class handles:
-    - Creating and updating Chroma vector stores
-    - Loading existing vector stores
+    This class handles the complete lifecycle of vector operations:
+    - Creating and loading Chroma vector stores
     - Extracting embeddings for visualization
     - Managing PCA dimensionality reduction
-    - Generating 3D plots with Plotly
+    - Generating interactive 3D plots with Plotly
+    - Providing query-specific visualizations
     """
     
     def __init__(
@@ -51,7 +63,7 @@ class VectorStoreManager:
         self.vectorstore: Optional[Chroma] = None
         self.pca: Optional[PCA] = None
         
-        # Data for visualization (loaded when vector store is loaded)
+        # Visualization data (loaded when vector store is loaded)
         self.vectors: Optional[np.ndarray] = None
         self.reduced_vectors: Optional[np.ndarray] = None
         self.doc_texts: Optional[List[str]] = None
@@ -127,10 +139,13 @@ class VectorStoreManager:
     
     def _load_visualization_data(self):
         """
-        Load embeddings and metadata for visualization with memory optimization.
+        Load embeddings and metadata for 3D visualization.
         
-        This extracts the raw embeddings from Chroma and prepares them
-        for PCA dimensionality reduction and plotting.
+        This method:
+        1. Extracts raw embeddings from Chroma
+        2. Performs PCA dimensionality reduction to 3D
+        3. Prepares metadata for visualization
+        4. Optimizes memory usage with appropriate data types
         """
         if not self.vectorstore:
             raise ValueError("No vector store loaded")
@@ -145,31 +160,24 @@ class VectorStoreManager:
             if len(result['embeddings']) == 0:
                 raise ValueError("No embeddings found in vector store")
             
-            # Store raw data with memory monitoring
+            # Store raw data with memory optimization
             print(f"Processing {len(result['embeddings'])} embeddings...")
-            self.vectors = np.array(result['embeddings'], dtype=np.float32)  # Use float32 to save memory
+            self.vectors = np.array(result['embeddings'], dtype=np.float32)  # Use float32 for memory efficiency
             self.doc_texts = result['documents']
             self.metadatas = result['metadatas']
             self.doc_types = [metadata.get('doc_type', 'unknown') for metadata in self.metadatas]
             
-            # Perform PCA for 3D visualization with memory optimization
+            # Perform PCA for 3D visualization
             print("Performing PCA dimensionality reduction...")
             self.pca = PCA(n_components=3)
-            
-            # Process in smaller batches if the dataset is large to reduce memory spikes
-            if len(self.vectors) > 2000:
-                print("Large dataset detected, using memory-optimized PCA...")
-                # For very large datasets, we could implement batch PCA, but for now just proceed
-                
             self.reduced_vectors = self.pca.fit_transform(self.vectors)
             
             print(f"✅ Loaded {len(self.vectors)} embeddings for visualization")
-            print(f"📊 Memory usage: {self.vectors.nbytes / 1024 / 1024:.1f} MB for vectors")
-            print(f"🔍 PCA explained variance ratio: {self.pca.explained_variance_ratio_}")
+            print(f"📊 Memory usage: {self.vectors.nbytes / 1024 / 1024:.1f} MB")
+            print(f"🔍 PCA explained variance: {self.pca.explained_variance_ratio_.sum():.3f}")
             
         except Exception as e:
             print(f"❌ Error loading visualization data: {e}")
-            print("💡 This might be due to memory constraints or vector store corruption")
             raise
     
     def get_retriever(self, k: int = 25):
@@ -191,8 +199,9 @@ class VectorStoreManager:
         """
         Create the initial 3D scatter plot showing all document chunks.
         
-        This shows the entire knowledge base in 3D space, colored by
-        document type (organization).
+        This visualization shows the entire knowledge base in 3D space,
+        with chunks color-coded by organization type. Each point represents
+        a document chunk, positioned based on semantic similarity.
         
         Returns:
             Plotly Figure object for the 3D visualization
@@ -235,7 +244,7 @@ class VectorStoreManager:
                 )
             )
         
-        # Create layout with dark theme
+        # Create layout with professional dark theme
         layout = go.Layout(
             title="3D Visualization of RAG Knowledge Base",
             height=490,
@@ -262,10 +271,14 @@ class VectorStoreManager:
         """
         Create a 3D plot highlighting query results.
         
-        This shows:
-        - All chunks (faded)
+        This visualization shows:
+        - All chunks (faded background)
         - Retrieved chunks (highlighted in white)
-        - Query vector (yellow diamond)
+        - Query position (yellow diamond)
+        
+        The query is embedded and positioned in the same 3D space,
+        allowing users to see how semantically similar chunks cluster
+        around their question.
         
         Args:
             query_text: The user's query
@@ -304,7 +317,7 @@ class VectorStoreManager:
         
         traces = []
         
-        # Add regular chunks (faded)
+        # Add regular chunks (faded background)
         for doc_type in unique_doc_types:
             group = df[(df['doc_type'] == doc_type) & (~df['is_retrieved'])]
             if not group.empty:
@@ -372,10 +385,13 @@ class VectorStoreManager:
     
     def get_database_info(self) -> Dict[str, Any]:
         """
-        Get information about the vector database for display.
+        Get comprehensive information about the vector database.
         
         Returns:
-            Dictionary with database statistics and configuration
+            Dictionary with database statistics and configuration including:
+            - Total chunks and document types
+            - Vector dimensions and PCA components
+            - Database path and status
         """
         if not self.vectorstore:
             return {"error": "No vector store loaded"}

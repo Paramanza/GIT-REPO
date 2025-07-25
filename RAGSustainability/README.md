@@ -8,20 +8,24 @@ A Retrieval Augmented Generation (RAG) chatbot focused on sustainability topics,
 - **3D Vector Visualization**: Real-time Plotly visualization of document embeddings
 - **Smart Document Retrieval**: Contextual chunk retrieval with highlighting
 - **Sustainability Knowledge Base**: Comprehensive collection from 40+ organizations
-- **Modular Architecture**: Clean, maintainable codebase with separate concerns
+- **Clean Architecture**: Modular, maintainable codebase with clear separation of concerns
 
 ## 🏗️ Architecture
 
-The codebase follows a modular design pattern:
+The application follows a clean, modular design:
 
 ```
-├── app.py                    # Main Gradio application orchestrator
-├── chunker.py               # Document loading and text chunking
-├── vector_store.py          # Vector database management and visualization
-├── rag_chain.py            # LangChain conversation logic and memory
+├── app.py                    # Main Gradio application and UI orchestration
+├── chunker.py               # Document loading and text chunking pipeline
+├── vector_store.py          # Vector database management and 3D visualization
+├── rag_chain.py            # RAG conversation logic and response formatting
+├── build_database.py       # Utility script to build/rebuild vector database
 ├── knowledge-base/         # Source documents organized by organization
 ├── vector_db/              # Chroma vector database (generated)
-└── requirements.txt        # Python dependencies
+├── sample_questions.txt    # Curated test questions for system evaluation
+├── requirements.txt        # Python dependencies
+├── Dockerfile             # Production container configuration
+└── fly.toml               # Fly.io deployment configuration
 ```
 
 ### Module Responsibilities
@@ -29,7 +33,7 @@ The codebase follows a modular design pattern:
 | Module | Purpose | Key Classes |
 |--------|---------|-------------|
 | **chunker.py** | Document processing pipeline | `DocumentChunker`, `SmartTextLoader` |
-| **vector_store.py** | Vector database & visualization | `VectorStoreManager` |
+| **vector_store.py** | Vector database & 3D visualization | `VectorStoreManager` |
 | **rag_chain.py** | Conversation & response handling | `RAGConversationManager`, `RAGResponseProcessor` |
 | **app.py** | UI orchestration & main entry | Gradio interface functions |
 
@@ -56,22 +60,16 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 If no vector database exists, create one from the knowledge base:
 
-```python
-# Run this script to process documents and create vector store
-from chunker import create_chunks_for_vectorstore
-from vector_store import create_vector_store_from_chunks
-from langchain_openai import OpenAIEmbeddings
-
-# Process documents
-chunks = create_chunks_for_vectorstore(create_preview=True)
-
-# Create vector store
-embeddings = OpenAIEmbeddings()
-vector_store_manager = create_vector_store_from_chunks(
-    chunks=chunks,
-    embeddings=embeddings
-)
+```bash
+# Build the vector database from knowledge base documents
+python build_database.py
 ```
+
+This will:
+- Process all documents in the `knowledge-base/` directory
+- Create optimally-sized chunks with metadata
+- Generate embeddings and store in Chroma database
+- Create a preview file for inspection
 
 ### 4. Launch Application
 
@@ -132,12 +130,8 @@ The system excels at cross-document analysis and policy comparison:
 2. Add `.txt` files with relevant content
 3. Rebuild vector database:
 
-```python
-from chunker import create_chunks_for_vectorstore
-from vector_store import create_vector_store_from_chunks
-
-chunks = create_chunks_for_vectorstore()
-# Vector store will auto-update with new content
+```bash
+python build_database.py
 ```
 
 ### Customizing Parameters
@@ -147,7 +141,7 @@ Key configuration in `app.py`:
 ```python
 MODEL = "gpt-4o-mini"          # OpenAI model
 K_FACTOR = 25                  # Chunks retrieved per query  
-TEMPERATURE = 0.7              # Response creativity
+TEMPERATURE = 0.7              # Response creativity (0-1)
 CHUNK_SIZE = 1600              # Token size per chunk
 CHUNK_OVERLAP = 400            # Overlap between chunks
 ```
@@ -186,7 +180,7 @@ curl -L https://fly.io/install.sh | sh
 flyctl auth login
 
 # 3. Update app name in fly.toml (make it unique)
-# Edit line 15: app = "your-unique-app-name"
+# Edit the app name to something unique for your deployment
 
 # 4. Set your OpenAI API key
 flyctl secrets set OPENAI_API_KEY=your_actual_openai_api_key_here
@@ -220,20 +214,12 @@ The deployment includes:
 - **Security**: Non-root user, health checks, secret management
 - **Optimization**: Layer caching, minimal dependencies
 
-### Deployment Files
-
-| File | Purpose |
-|------|---------|
-| `Dockerfile` | Production container configuration |
-| `fly.toml` | Fly.io deployment settings |
-| `.dockerignore` | Excludes unnecessary files from build |
-
 ### Resource Requirements
 
-- **Memory**: 4GB (for vector store + ML operations)
+- **Memory**: 4GB recommended (for vector store + ML operations)
 - **CPU**: 2 vCPU (shared) for responsive performance
 - **Storage**: ~1GB (vector store + dependencies)
-- **Cold Start**: ~30-60 seconds first request
+- **Cold Start**: ~30-60 seconds for first request
 
 ### Secrets Management
 
@@ -267,36 +253,15 @@ flyctl scale memory 8gb
 flyctl scale count 2
 ```
 
-#### Troubleshooting Deployment Issues
-
-If you encounter deployment problems, use the debugging script:
-
-```bash
-# Run comprehensive debugging
-chmod +x debug_deployment.sh
-./debug_deployment.sh
-```
-
-**Common Issues & Solutions:**
+#### Common Issues & Solutions
 
 | Issue | Solution |
 |-------|----------|
-| "Not listening on expected address" | App not binding to 0.0.0.0:7860 - check logs for Gradio startup |
-| Health check timeouts | Use `fly-no-healthcheck.toml` for initial deployment |
-| Out of memory errors | Increase memory in `fly.toml` resources section |
-| Slow startup (>3 minutes) | Vector store loading - increase grace period |
-| Docker build fails locally | Check vector_db directory exists and has content |
-
-**Quick Fix for Health Check Issues:**
-```bash
-# Deploy without health checks first
-cp fly-no-healthcheck.toml fly.toml
-flyctl deploy
-
-# Once working, restore health checks
-git checkout fly.toml  # or restore from backup
-flyctl deploy
-```
+| "Not listening on expected address" | App not binding to 0.0.0.0:7860 - check Gradio startup logs |
+| Health check timeouts | Increase grace period in fly.toml |
+| Out of memory errors | Increase memory allocation in fly.toml |
+| Slow startup (>3 minutes) | Vector store loading - normal for first cold start |
+| Docker build fails locally | Ensure vector_db directory exists and has content |
 
 ### Cost Optimization
 
@@ -310,7 +275,7 @@ flyctl deploy
 - **Vector Database**: ~3,000 chunks from 500+ documents
 - **Response Time**: ~2-3 seconds for complex queries
 - **Memory Usage**: ~500MB with full knowledge base loaded
-- **Visualization**: Real-time updates with 60fps interactions
+- **Visualization**: Real-time updates with smooth interactions
 
 ## 🤝 Contributing
 
@@ -318,7 +283,7 @@ The codebase follows clean architecture principles:
 
 1. **Separation of Concerns**: Each module has single responsibility
 2. **Type Hints**: Full typing for better IDE support  
-3. **Documentation**: Comprehensive docstrings
+3. **Documentation**: Comprehensive docstrings and comments
 4. **Error Handling**: Graceful failure with user feedback
 
 ## 📄 License

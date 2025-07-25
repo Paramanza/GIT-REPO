@@ -1,9 +1,14 @@
 """
 Document Chunking Module for RAG Sustainability Chatbot
 
-This module handles the loading, chunking, and metadata enrichment of documents
-from the knowledge base. It provides a clean interface for preparing documents
-for vector storage.
+This module handles the complete document processing pipeline:
+1. Loading documents from the knowledge base directory structure
+2. Chunking documents with appropriate overlap for optimal retrieval
+3. Adding metadata based on document source organization
+4. Creating debug/preview files for analysis
+
+The chunker supports automatic encoding detection for international documents
+and semantic splitting that respects document structure.
 
 Author: RAG Sustainability Project
 """
@@ -20,9 +25,9 @@ from langchain.schema import Document
 
 class SmartTextLoader(TextLoader):
     """
-    Enhanced TextLoader that automatically detects file encoding.
+    Enhanced TextLoader with automatic encoding detection.
     
-    This handles documents with various encodings commonly found in
+    Handles documents with various encodings commonly found in
     sustainability and policy documents from different regions.
     """
     
@@ -46,13 +51,13 @@ class SmartTextLoader(TextLoader):
 
 class DocumentChunker:
     """
-    Handles document loading, chunking, and metadata enrichment for the RAG system.
+    Manages the complete document preparation pipeline for the RAG system.
     
-    This class manages the entire document preparation pipeline:
-    1. Loading documents from organized knowledge base folders
-    2. Chunking documents with appropriate overlap
-    3. Adding metadata based on document source organization
-    4. Optionally creating debug/preview files
+    This class handles:
+    - Loading documents from organized knowledge base folders
+    - Chunking documents with semantic awareness
+    - Adding metadata based on document source organization
+    - Creating debug/preview files for analysis
     """
     
     def __init__(
@@ -74,15 +79,19 @@ class DocumentChunker:
         self.knowledge_base_path = knowledge_base_path
         
         # Initialize text splitter with semantic separators
+        # Prioritizes paragraph breaks, then sentences, then words
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
-            separators=["\n\n", "\n", ".", " "]  # Prioritize paragraph breaks
+            separators=["\n\n", "\n", ".", " "]
         )
     
     def load_documents(self) -> Tuple[List[Document], Dict[str, str]]:
         """
         Load all documents from the knowledge base directory structure.
+        
+        Each subdirectory represents an organization (e.g., "EU_Parliament",
+        "Carbon_Trust") and contains relevant documents as .txt files.
         
         Returns:
             Tuple of (documents_list, folder_mapping_dict)
@@ -130,7 +139,7 @@ class DocumentChunker:
         
         This enriches each chunk with:
         - doc_type: The organization/source type (e.g., "EU_Parliament", "Carbon_Trust")
-        - original source path information
+        - Original source path information for traceability
         
         Args:
             chunks: List of document chunks to enrich
@@ -161,6 +170,9 @@ class DocumentChunker:
         """
         Convert documents into chunks with metadata.
         
+        Uses semantic-aware splitting that respects document structure,
+        then adds organization metadata to each chunk.
+        
         Args:
             documents: List of loaded documents
             folder_mapping: Maps folder paths to document types
@@ -179,8 +191,10 @@ class DocumentChunker:
         """
         Create a CSV preview of chunks for debugging and analysis.
         
-        This is useful for understanding how documents are being chunked
-        and for debugging retrieval issues.
+        This is useful for:
+        - Understanding how documents are being chunked
+        - Debugging retrieval issues
+        - Analyzing chunk distribution across organizations
         
         Args:
             chunks: List of document chunks
@@ -204,15 +218,22 @@ class DocumentChunker:
     
     def process_knowledge_base(self, create_preview: bool = False) -> List[Document]:
         """
-        Complete pipeline: load documents, chunk them, and add metadata.
+        Complete document processing pipeline.
         
-        This is the main entry point for document processing.
+        This is the main entry point that orchestrates:
+        1. Loading documents from the knowledge base
+        2. Chunking with semantic awareness
+        3. Adding metadata
+        4. Optionally creating a preview file
         
         Args:
             create_preview: Whether to create a CSV preview file
             
         Returns:
             List of processed chunks ready for vector storage
+            
+        Raises:
+            ValueError: If no documents found in knowledge base
         """
         # Load all documents
         documents, folder_mapping = self.load_documents()
@@ -239,7 +260,8 @@ def create_chunks_for_vectorstore(
     """
     Convenience function to create chunks ready for vector storage.
     
-    This is a simple interface for the most common use case.
+    This provides a simple interface for the most common use case:
+    processing all documents in the knowledge base with standard parameters.
     
     Args:
         chunk_size: Size of each text chunk in tokens
@@ -262,6 +284,9 @@ def create_chunks_for_vectorstore(
 if __name__ == "__main__":
     """
     Standalone script to process documents and create chunks.
+    
+    Run this script directly to process the knowledge base and create
+    a preview file for inspection.
     """
     print("RAG Document Chunker")
     print("===================")
@@ -270,5 +295,7 @@ if __name__ == "__main__":
         chunks = create_chunks_for_vectorstore(create_preview=True)
         print(f"\n✅ Successfully processed {len(chunks)} chunks")
         print("Chunks are ready for vector storage")
+        print("📋 Check chunk_preview.csv to inspect the results")
     except Exception as e:
-        print(f"\n❌ Error processing documents: {e}") 
+        print(f"\n❌ Error processing documents: {e}")
+        print("💡 Make sure the knowledge-base directory exists with .txt files") 

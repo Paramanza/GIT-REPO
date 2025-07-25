@@ -1,11 +1,24 @@
 """
 RAG Conversation Chain Module for RAG Sustainability Chatbot
 
-This module handles:
-1. LangChain conversation chain setup with memory
-2. RAG (Retrieval Augmented Generation) query processing
-3. Response formatting and chunk display
-4. Conversation memory management
+This module handles the core RAG (Retrieval Augmented Generation) functionality:
+
+1. Conversation Management:
+   - LangChain conversation chains with memory
+   - Query processing and response generation
+   - Conversation history tracking
+
+2. Response Processing:
+   - Formatting responses for UI display
+   - Chunk display and metadata extraction
+   - Error handling and fallback responses
+
+3. Sample Questions:
+   - Curated test questions for system evaluation
+   - Categorized by query complexity and type
+
+The module uses OpenAI's GPT models for generation and integrates with
+the vector store for relevant context retrieval.
 
 Author: RAG Sustainability Project
 """
@@ -22,10 +35,10 @@ class RAGConversationManager:
     """
     Manages RAG conversations with memory and response formatting.
     
-    This class handles:
+    This class orchestrates the entire conversation flow:
     - Setting up LangChain conversation chains
-    - Managing conversation memory
-    - Processing queries and retrieving relevant chunks
+    - Managing conversation memory across interactions
+    - Processing queries and retrieving relevant context
     - Formatting responses for display in the UI
     """
     
@@ -136,7 +149,6 @@ class RAGConversationManager:
         for i, doc in enumerate(source_documents):
             # Extract metadata
             doc_type = doc.metadata.get('doc_type', 'unknown')
-            source = doc.metadata.get('source', 'unknown')
             
             # Create chunk header
             chunk_text = f"**Chunk {i+1}** (from {doc_type}):\n"
@@ -198,8 +210,8 @@ class RAGResponseProcessor:
     """
     Processes and formats RAG responses for different UI contexts.
     
-    This class handles response formatting that's common across
-    different interface types (Gradio, Streamlit, etc.).
+    This class provides static methods for common response processing
+    tasks that can be used across different interface types.
     """
     
     @staticmethod
@@ -308,7 +320,10 @@ def create_rag_conversation_manager(
     )
 
 
-# Sample test questions for evaluating the RAG system
+# ============================================================================
+# SAMPLE TEST QUESTIONS
+# ============================================================================
+
 SAMPLE_TEST_QUESTIONS = [
     # Cross-Document Comparison Questions
     "What are the key differences between the UK's Green Claims Code and the US FTC Green Guides regarding the use of terms like 'eco-friendly' in marketing fashion products?",
@@ -339,6 +354,12 @@ SAMPLE_TEST_QUESTIONS = [
 def get_sample_questions() -> List[str]:
     """
     Get a list of sample questions for testing the RAG system.
+    
+    These questions are designed to test different aspects of the RAG system:
+    - Cross-document comparison and synthesis
+    - Factual recall and metric analysis
+    - Policy interpretation and regulatory comparison
+    - Practical application of guidelines
     
     Returns:
         List of sample questions covering different query types

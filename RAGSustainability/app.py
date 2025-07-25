@@ -1,15 +1,16 @@
 """
 RAG Sustainability Chatbot - Main Gradio Application
 
-This is the main orchestrator for the RAG (Retrieval Augmented Generation) sustainability
-chatbot. It provides a Gradio-based web interface with:
+A web-based RAG (Retrieval Augmented Generation) chatbot focused on sustainability
+topics with real-time 3D vector space visualization.
 
-1. Interactive chat with memory and context awareness
-2. 3D visualization of the vector space using Plotly
-3. Real-time highlighting of retrieved document chunks
-4. Sample questions for testing the system
+Features:
+- Interactive chat with conversation memory
+- 3D visualization of vector embeddings using Plotly
+- Real-time highlighting of retrieved document chunks
+- Sample questions for testing the system
 
-The application uses a modular architecture:
+Architecture:
 - chunker.py: Document loading and text chunking
 - vector_store.py: Vector database management and visualization
 - rag_chain.py: LangChain conversation logic and response formatting
@@ -35,7 +36,7 @@ from langchain_openai import OpenAIEmbeddings
 MODEL = "gpt-4o-mini"
 DB_NAME = "vector_db"
 K_FACTOR = 25  # Number of chunks to retrieve per query
-TEMPERATURE = 0.7  # LLM creativity level
+TEMPERATURE = 0.7  # LLM creativity level (0-1)
 
 
 # ============================================================================
@@ -46,22 +47,10 @@ def initialize_application():
     """
     Initialize the RAG application components.
     
-    This function:
-    1. Loads environment variables
-    2. Sets up OpenAI API key
-    3. Loads the existing vector store
-    4. Creates the RAG conversation manager
-    5. Generates the initial 3D visualization
-    
     Returns:
         Tuple of (vector_store_manager, rag_manager, initial_plot)
     """
     print("🚀 Initializing RAG Sustainability Chatbot...")
-    
-    # Check environment
-    is_docker = os.getenv('DOCKER_ENV') == 'true'
-    print(f"🔍 Environment: {'Docker' if is_docker else 'Local'}")
-    print(f"🔍 DOCKER_ENV = {os.getenv('DOCKER_ENV')}")
     
     # Load environment variables
     load_dotenv()
@@ -69,14 +58,13 @@ def initialize_application():
     if api_key == 'your-key-if-not-using-env':
         print("⚠️  Warning: Using default API key placeholder")
     else:
-        print(f"🔑 OpenAI API key loaded: {api_key[:8]}...")
+        print(f"🔑 OpenAI API key loaded")
     os.environ['OPENAI_API_KEY'] = api_key
     
-    # Initialize embeddings
+    # Initialize embeddings and load vector store
     embeddings = OpenAIEmbeddings()
-    
-    # Load existing vector store with memory optimization
     print("📚 Loading vector store...")
+    
     try:
         vector_store_manager = load_existing_vector_store(
             db_name=DB_NAME,
@@ -85,14 +73,12 @@ def initialize_application():
         print(f"✅ Vector store loaded successfully")
     except Exception as e:
         print(f"❌ Error loading vector store: {e}")
-        print("💡 This might be due to memory constraints during startup")
         raise
     
-    # Create retriever
+    # Create retriever and RAG conversation manager
     retriever = vector_store_manager.get_retriever(k=K_FACTOR)
-    
-    # Initialize RAG conversation manager
     print("🤖 Setting up conversation chain...")
+    
     rag_manager = create_rag_conversation_manager(
         retriever=retriever,
         model_name=MODEL,
@@ -116,11 +102,6 @@ def chat_with_rag(message, history, plot_fig, vector_store_manager, rag_manager)
     """
     Handle chat interactions with the RAG system.
     
-    This function processes user queries and updates the UI with:
-    - Generated responses
-    - Retrieved document chunks
-    - Updated 3D visualization highlighting relevant chunks
-    
     Args:
         message: User's input message
         history: Current chat history
@@ -131,7 +112,6 @@ def chat_with_rag(message, history, plot_fig, vector_store_manager, rag_manager)
     Returns:
         Tuple of (updated_history, formatted_chunks, updated_plot)
     """
-    # Handle empty messages
     if not message.strip():
         return history, "", plot_fig
     
@@ -170,7 +150,7 @@ def create_database_info_text(vector_store_manager):
 • Powered by Chroma                                    • Total Chunks: {info.get('total_chunks', 0)}
 • Chunk Size: 1600 tokens                            • Document Types: {info.get('unique_doc_types', 0)}
 • Chunk Overlap: 400 tokens                       • K Factor: {K_FACTOR} retrieved per query
-• Vector Dimensions: {info.get('vector_dimensions', 0)}                • PCA Components: {info.get('pca_components', 3)}"""
+• Vector Dimensions: {info.get('vector_dimensions', 0)}                     • PCA Components: {info.get('pca_components', 3)}"""
 
 
 def create_sample_questions_text():
@@ -182,7 +162,7 @@ def create_sample_questions_text():
     """
     questions = get_sample_questions()
     
-    # Group questions by category (based on the structure from rag_chain.py)
+    # Group questions by category
     categories = [
         ("Cross-Document Comparison Questions:", questions[0:3]),
         ("Sustainability Metrics and Impact Analysis:", questions[3:6]),
@@ -217,7 +197,7 @@ def create_gradio_interface(vector_store_manager, rag_manager, initial_plot):
     Returns:
         Configured Gradio Blocks interface
     """
-    # Create database info text
+    # Create database info and sample questions text
     db_info_text = create_database_info_text(vector_store_manager)
     sample_questions_text = create_sample_questions_text()
     
@@ -227,7 +207,7 @@ def create_gradio_interface(vector_store_manager, rag_manager, initial_plot):
         # Header with title and sample questions button
         with gr.Row():
             gr.Markdown("#  Sustainability RAG Chatbot with Vector Visualization")
-            test_questions_btn = gr.Button("📋 Sample Questions", size="sm", scale=1)
+            test_questions_btn = gr.Button(" Sample Questions", size="sm", scale=1)
         
         # Main interface layout
         with gr.Row():
@@ -260,7 +240,7 @@ def create_gradio_interface(vector_store_manager, rag_manager, initial_plot):
                 
                 info_display = gr.Textbox(
                     value=db_info_text,
-                    label="ℹ️ Vector Database Details",
+                    label=" Vector Database Details",
                     lines=5,
                     interactive=False
                 )
@@ -325,6 +305,20 @@ def create_gradio_interface(vector_store_manager, rag_manager, initial_plot):
 # MAIN APPLICATION
 # ============================================================================
 
+def detect_docker_environment():
+    """
+    Detect if running in Docker/production environment.
+    
+    Returns:
+        bool: True if running in Docker, False for local development
+    """
+    return (
+        os.getenv('DOCKER_ENV') == 'true' or 
+        os.path.exists('/.dockerenv') or 
+        os.getenv('FLY_APP_NAME') is not None
+    )
+
+
 def main():
     """
     Main function to initialize and launch the RAG chatbot application.
@@ -339,37 +333,21 @@ def main():
         
         print("🚀 Launching application...")
         
-        # Check if running in Docker (for deployment) with multiple detection methods
-        is_docker = (
-            os.getenv('DOCKER_ENV') == 'true' or 
-            os.path.exists('/.dockerenv') or 
-            os.getenv('FLY_APP_NAME') is not None
-        )
-        
-        print(f"🔍 Environment detection:")
-        print(f"   DOCKER_ENV = {os.getenv('DOCKER_ENV')}")
-        print(f"   /.dockerenv exists = {os.path.exists('/.dockerenv')}")
-        print(f"   FLY_APP_NAME = {os.getenv('FLY_APP_NAME')}")
-        print(f"   is_docker = {is_docker}")
+        # Configure for Docker/production or local development
+        is_docker = detect_docker_environment()
         
         if is_docker:
-            # Docker/production configuration - be very explicit about host and port
-            print("🐳 Running in Docker mode - binding to 0.0.0.0:7860")
-            print("🔧 Gradio will start on all interfaces (0.0.0.0)")
-            
+            print("🐳 Docker mode detected - binding to 0.0.0.0:7860")
             demo.launch(
                 server_name="0.0.0.0",
                 server_port=7860,
                 share=False,
                 show_error=True,
                 inbrowser=False,
-                debug=False,
-                quiet=False,
                 prevent_thread_lock=False
             )
         else:
-            # Local development configuration
-            print("💻 Running in local mode")
+            print("💻 Local development mode")
             demo.launch(
                 inbrowser=True,
                 share=False,
@@ -378,7 +356,7 @@ def main():
         
     except FileNotFoundError as e:
         print(f"❌ Vector store not found: {e}")
-        print("💡 Please run data_prep.py first to create the vector database")
+        print("💡 Please run build_database.py first to create the vector database")
         
     except Exception as e:
         print(f"❌ Error initializing application: {e}")

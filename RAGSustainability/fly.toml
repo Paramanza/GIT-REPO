@@ -54,7 +54,7 @@ version = 2
   size = "shared-cpu-2x"    # 2 vCPU needed for ML operations and responsiveness
   
   # Memory allocation - optimized but sufficient
-  memory = "4gb"            # Reduced from 4GB but provides processing headroom
+  memory = "2gb"            # Reduced from 4GB but provides processing headroom
 
 # Region configuration
 [placement]

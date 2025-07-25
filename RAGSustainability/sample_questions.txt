@@ -1,5 +1,5 @@
 Cross-Document Comparison Questions:
-What are the key differences between the UK’s Green Claims Code and the US FTC Green Guides regarding the use of terms like "eco-friendly" in marketing fashion products?
+What are the key differences between the UK's Green Claims Code and the US FTC Green Guides regarding the use of terms like "eco-friendly" in marketing fashion products?
 Tests understanding of regulatory nuance across jurisdictions.
 
 Compare how the EU and the UK approach the responsibility of fashion businesses in substantiating environmental claims. What legal or practical requirements are in place in both regions?
@@ -12,34 +12,22 @@ Sustainability Metrics and Impact Analysis:
 How much water is required to produce a cotton T-shirt, and how does this illustrate the environmental impact of textile production in the EU?
 Tests factual recall from EU Parliament and EEA sources on water consumption.
 
-What proportion of clothes are recycled into new garments in the EU, and how does this relate to the EU’s goals for a circular economy by 2050?
+What proportion of clothes are recycled into new garments in the EU, and how does this relate to the EU's goals for a circular economy by 2050?
 Connects micro-level statistics with high-level strategic goals.
 
 What specific environmental harms are associated with synthetic textiles in both EU and US contexts, and how do policies in each region attempt to mitigate them?
 Draws on EU microplastics policy and US FTC Green Guides on biodegradability and environmental claims.
 
 Policy and Regulatory Questions:
-What is the EU’s Extended Producer Responsibility (EPR) scheme for textiles, and how does its proposed timeline compare with UK or US regulatory efforts?
+What is the EU's Extended Producer Responsibility (EPR) scheme for textiles, and how does its proposed timeline compare with UK or US regulatory efforts?
 Evaluates retrieval and comparison of timelines and policy mechanisms.
 
 What are the legal consequences for fashion businesses in the UK that make misleading green claims, and how do these compare to enforcement under the US FTC guidelines?
 Tests understanding of legal frameworks and enforcement mechanisms.
 
 Application & Practical Evaluation:
-If a fashion brand claims that a polyester jacket is “sustainable” because it uses recycled materials, what further information must they provide according to UK and EU guidance to avoid misleading consumers?
+If a fashion brand claims that a polyester jacket is "sustainable" because it uses recycled materials, what further information must they provide according to UK and EU guidance to avoid misleading consumers?
 Evaluates application of principles like lifecycle consideration, claim substantiation, and transparency.
 
-What should a fashion brand include on its product labels and marketing to comply with both the EU’s proposed Digital Product Passport and the FTC’s Green Guides?
-Cross-checks label transparency, durability, recycled content, and origin information from different jurisdictions.
-
-
-
-
-
-
-
-
-
-
-
-Ask ChatGPT
+What should a fashion brand include on its product labels and marketing to comply with both the EU's proposed Digital Product Passport and the FTC's Green Guides?
+Cross-checks label transparency, durability, recycled content, and origin information from different jurisdictions. 
